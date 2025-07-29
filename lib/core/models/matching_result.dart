@@ -1,0 +1,169 @@
+import 'package:matchify_desktop/core/models/record.dart';
+
+class ExactMatch {
+  final PaymentRecord payment;
+  final ReceivableRecord receivable;
+
+  ExactMatch({required this.payment, required this.receivable});
+
+  double get amount => payment.amount;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'payment_row': payment.rowNumber,
+      'receivable_row': receivable.rowNumber,
+      'amount': amount,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'ExactMatch(payment: ${payment.rowNumber}, receivable: ${receivable.rowNumber}, amount: $amount)';
+  }
+}
+
+class CombinationOption {
+  final List<ReceivableRecord> receivables;
+  final int selectedIndex; // -1 means not selected
+
+  CombinationOption({
+    required this.receivables,
+    this.selectedIndex = -1,
+  });
+
+  double get totalAmount {
+    return receivables.fold(0.0, (sum, receivable) => sum + receivable.amount);
+  }
+
+  List<int> get receivableRows => receivables.map((r) => r.rowNumber).toList();
+  List<double> get receivableAmounts =>
+      receivables.map((r) => r.amount).toList();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'rows': receivableRows,
+      'amounts': receivableAmounts,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'CombinationOption(receivables: ${receivableRows}, total: $totalAmount)';
+  }
+}
+
+class CombinationMatch {
+  final PaymentRecord payment;
+  final List<CombinationOption> options;
+  final int selectedOptionIndex; // -1 means not selected
+
+  CombinationMatch({
+    required this.payment,
+    required this.options,
+    this.selectedOptionIndex = -1,
+  });
+
+  double get totalAmount {
+    if (selectedOptionIndex >= 0 && selectedOptionIndex < options.length) {
+      return options[selectedOptionIndex].totalAmount;
+    }
+    return 0.0;
+  }
+
+  List<ReceivableRecord> get selectedReceivables {
+    if (selectedOptionIndex >= 0 && selectedOptionIndex < options.length) {
+      return options[selectedOptionIndex].receivables;
+    }
+    return [];
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'payment_row': payment.rowNumber,
+      'amount': payment.amount,
+      'combinations': options.map((option) => option.toMap()).toList(),
+      'selected_combination': selectedOptionIndex,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'CombinationMatch(payment: ${payment.rowNumber}, options: ${options.length}, selected: $selectedOptionIndex)';
+  }
+}
+
+class UserSelection {
+  final Map<int, int> combinationSelections; // payment row -> selected option index
+
+  UserSelection({required this.combinationSelections});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'combination_selections': combinationSelections,
+    };
+  }
+}
+
+class MatchingResult {
+  final List<ExactMatch> exactMatches;
+  final List<CombinationMatch> combinationMatches;
+  final List<PaymentRecord> unmatchedPayments;
+  final List<ReceivableRecord> unmatchedReceivables;
+  final Duration processingTime;
+  final UserSelection? userSelection;
+
+  MatchingResult({
+    required this.exactMatches,
+    required this.combinationMatches,
+    required this.unmatchedPayments,
+    required this.unmatchedReceivables,
+    required this.processingTime,
+    this.userSelection,
+  });
+
+  int get totalExactMatches => exactMatches.length;
+  int get totalCombinationMatches => combinationMatches.length;
+  int get totalUnmatchedPayments => unmatchedPayments.length;
+  int get totalUnmatchedReceivables => unmatchedReceivables.length;
+
+  double get totalMatchedAmount {
+    double exactAmount = exactMatches.fold(
+      0.0,
+      (sum, match) => sum + match.amount,
+    );
+    double combinationAmount = combinationMatches.fold(
+      0.0,
+      (sum, match) => sum + match.totalAmount,
+    );
+    return exactAmount + combinationAmount;
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'exact_matches': exactMatches.map((match) => match.toMap()).toList(),
+      'combination_matches': combinationMatches
+          .map((match) => match.toMap())
+          .toList(),
+      'unmatched_payments': unmatchedPayments
+          .map((payment) => payment.toMap())
+          .toList(),
+      'unmatched_receivables': unmatchedReceivables
+          .map((receivable) => receivable.toMap())
+          .toList(),
+      'processing_time_ms': processingTime.inMilliseconds,
+      'user_selection': userSelection?.toMap(),
+      'statistics': {
+        'total_exact_matches': totalExactMatches,
+        'total_combination_matches': totalCombinationMatches,
+        'total_unmatched_payments': totalUnmatchedPayments,
+        'total_unmatched_receivables': totalUnmatchedReceivables,
+        'total_matched_amount': totalMatchedAmount,
+      },
+    };
+  }
+
+  @override
+  String toString() {
+    return 'MatchingResult(exact: $totalExactMatches, combinations: $totalCombinationMatches, unmatched payments: $totalUnmatchedPayments, unmatched receivables: $totalUnmatchedReceivables)';
+  }
+}
