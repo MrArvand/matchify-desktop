@@ -292,68 +292,59 @@ class ExportSection extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'پیش‌نمایش نتایج',
+              'جزئیات کامل نتایج',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 20),
 
-            // Exact Matches
+            // Exact Matches - Show all rows
             if (result.exactMatches.isNotEmpty) ...[
               _buildSectionHeader('تطبیق‌های دقیق', Icons.check_circle,
                   AppTheme.successColor, theme),
               const SizedBox(height: 12),
-              ...result.exactMatches.take(3).map((match) => _buildMatchItem(
-                    'ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)} → ردیف ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}',
-                    PersianNumberFormatter.formatCurrency(match.amount),
-                    theme,
-                  )),
-              if (result.exactMatches.length > 3)
-                Text(
-                  'و ${PersianNumberFormatter.formatNumber(result.exactMatches.length - 3)} مورد دیگر...',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
+              ...result.exactMatches
+                  .map((match) => _buildExactMatchItem(match, theme)),
               const SizedBox(height: 20),
             ],
 
-            // Combination Matches
+            // Combination Matches - Show all rows with detailed combinations
             if (selectedCombinations.isNotEmpty) ...[
               _buildSectionHeader('تطبیق‌های ترکیبی', Icons.merge_type,
                   AppTheme.accentColor, theme),
               const SizedBox(height: 12),
-              ...selectedCombinations.take(3).map((match) {
-                final selectedOption = match.options[match.selectedOptionIndex];
-                return _buildMatchItem(
-                  'ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)} (${PersianNumberFormatter.formatNumber(selectedOption.receivables.length)} ترکیب)',
-                  PersianNumberFormatter.formatCurrency(
-                      selectedOption.totalAmount),
-                  theme,
-                );
-              }),
-              if (selectedCombinations.length > 3)
-                Text(
-                  'و ${PersianNumberFormatter.formatNumber(selectedCombinations.length - 3)} مورد دیگر...',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
+              ...selectedCombinations
+                  .map((match) => _buildCombinationMatchItem(match, theme)),
               const SizedBox(height: 20),
             ],
 
-            // Unmatched
-            if (totalUnmatched > 0) ...[
-              _buildSectionHeader(
-                  'نامطابق‌ها', Icons.warning, AppTheme.warningColor, theme),
+            // Unmatched Payments - Show all rows
+            if (result.unmatchedPayments.isNotEmpty) ...[
+              _buildSectionHeader('پرداخت‌های نامطابق', Icons.warning,
+                  AppTheme.warningColor, theme),
               const SizedBox(height: 12),
-              Text(
-                '${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)} پرداخت و ${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)} دریافت نامطابق',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
-                ),
-              ),
+              ...result.unmatchedPayments.map((payment) => _buildUnmatchedItem(
+                    'ردیف ${PersianNumberFormatter.formatNumber(payment.rowNumber)}',
+                    PersianNumberFormatter.formatCurrency(payment.amount),
+                    'پرداخت',
+                    theme,
+                  )),
+              const SizedBox(height: 20),
+            ],
+
+            // Unmatched Receivables - Show all rows
+            if (result.unmatchedReceivables.isNotEmpty) ...[
+              _buildSectionHeader('دریافت‌های نامطابق', Icons.warning,
+                  AppTheme.warningColor, theme),
+              const SizedBox(height: 12),
+              ...result.unmatchedReceivables.map((receivable) =>
+                  _buildUnmatchedItem(
+                    'ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}',
+                    PersianNumberFormatter.formatCurrency(receivable.amount),
+                    'دریافت',
+                    theme,
+                  )),
             ],
           ],
         ),
@@ -375,6 +366,244 @@ class ExportSection extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildExactMatchItem(ExactMatch match, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.successColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.successColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.check_circle, color: AppTheme.successColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'تطبیق دقیق',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.successColor,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                PersianNumberFormatter.formatCurrency(match.amount),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.successColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'پرداخت: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'مبلغ: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'دریافت: ردیف ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'مبلغ: ${PersianNumberFormatter.formatCurrency(match.receivable.amount)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCombinationMatchItem(CombinationMatch match, ThemeData theme) {
+    final selectedOption = match.options[match.selectedOptionIndex];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.accentColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.accentColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.merge_type, color: AppTheme.accentColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'تطبیق ترکیبی',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.accentColor,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                PersianNumberFormatter.formatCurrency(
+                    selectedOption.totalAmount),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.accentColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Payment row
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              border:
+                  Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'پرداخت: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  'مبلغ: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Receivables combination
+          Text(
+            'ترکیب انتخاب شده (${PersianNumberFormatter.formatNumber(selectedOption.receivables.length)} دریافت):',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...selectedOption.receivables.map((receivable) => Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: AppTheme.secondaryColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.receipt,
+                        color: AppTheme.secondaryColor, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const Spacer(),
+                    Text(
+                      PersianNumberFormatter.formatCurrency(receivable.amount),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.secondaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnmatchedItem(
+      String rowInfo, String amount, String type, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.warningColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.warningColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              color: AppTheme.warningColor, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$rowInfo ($type)',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  'نامطابق',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppTheme.warningColor,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            amount,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppTheme.warningColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -482,76 +711,86 @@ class ExportSection extends ConsumerWidget {
   String _generateReportText(MatchingResult result) {
     final buffer = StringBuffer();
 
-    buffer.writeln('گزارش تطبیق مبالغ');
-    buffer.writeln('=' * 50);
+    buffer.writeln('گزارش کامل تطبیق مبالغ');
+    buffer.writeln('=' * 60);
     buffer.writeln('تاریخ: ${DateTime.now().toLocal()}');
     buffer.writeln(
         'زمان پردازش: ${PersianNumberFormatter.formatNumber(result.processingTime.inMilliseconds)} میلی‌ثانیه');
     buffer.writeln();
 
-    // Exact Matches
-    buffer.writeln('تطبیق‌های دقیق:');
-    buffer.writeln('-' * 30);
-    for (final match in result.exactMatches) {
-      buffer.writeln(
-          'ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)} → ردیف دریافت ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}');
-      buffer.writeln(
-          'مبلغ: ${PersianNumberFormatter.formatCurrency(match.amount)}');
-      buffer.writeln();
-    }
-
-    // Combination Matches
-    if (result.combinationMatches.isNotEmpty) {
-      buffer.writeln('تطبیق‌های ترکیبی:');
-      buffer.writeln('-' * 30);
-      for (final match in result.combinationMatches) {
-        if (match.selectedOptionIndex >= 0) {
-          final selectedOption = match.options[match.selectedOptionIndex];
-          buffer.writeln(
-              'ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}:');
-          buffer.writeln(
-              'مبلغ پرداخت: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
-          buffer.writeln('ترکیب انتخاب شده:');
-          for (final receivable in selectedOption.receivables) {
-            buffer.writeln(
-                '  - ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}');
-          }
-          buffer.writeln(
-              'مجموع: ${PersianNumberFormatter.formatCurrency(selectedOption.totalAmount)}');
-          buffer.writeln();
-        }
+    // Exact Matches - Detailed
+    if (result.exactMatches.isNotEmpty) {
+      buffer.writeln('تطبیق‌های دقیق:');
+      buffer.writeln('=' * 30);
+      for (final match in result.exactMatches) {
+        buffer.writeln(
+            '• ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}');
+        buffer.writeln(
+            '  مبلغ پرداخت: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
+        buffer.writeln(
+            '• ردیف دریافت ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}');
+        buffer.writeln(
+            '  مبلغ دریافت: ${PersianNumberFormatter.formatCurrency(match.receivable.amount)}');
+        buffer.writeln(
+            '• تطبیق: ${PersianNumberFormatter.formatCurrency(match.amount)}');
+        buffer.writeln();
       }
     }
 
-    // Unmatched Payments
+    // Combination Matches - Detailed
+    final selectedCombinations = result.combinationMatches
+        .where((match) => match.selectedOptionIndex >= 0)
+        .toList();
+    if (selectedCombinations.isNotEmpty) {
+      buffer.writeln('تطبیق‌های ترکیبی:');
+      buffer.writeln('=' * 30);
+      for (final match in selectedCombinations) {
+        final selectedOption = match.options[match.selectedOptionIndex];
+        buffer.writeln(
+            '• ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}');
+        buffer.writeln(
+            '  مبلغ پرداخت: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
+        buffer.writeln(
+            '• ترکیب انتخاب شده (${PersianNumberFormatter.formatNumber(selectedOption.receivables.length)} دریافت):');
+        for (final receivable in selectedOption.receivables) {
+          buffer.writeln(
+              '  - ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}');
+        }
+        buffer.writeln(
+            '• مجموع ترکیب: ${PersianNumberFormatter.formatCurrency(selectedOption.totalAmount)}');
+        buffer.writeln();
+      }
+    }
+
+    // Unmatched Payments - Detailed
     if (result.unmatchedPayments.isNotEmpty) {
       buffer.writeln('پرداخت‌های نامطابق:');
-      buffer.writeln('-' * 30);
+      buffer.writeln('=' * 30);
       for (final payment in result.unmatchedPayments) {
         buffer.writeln(
-            'ردیف ${PersianNumberFormatter.formatNumber(payment.rowNumber)}: ${PersianNumberFormatter.formatCurrency(payment.amount)}');
+            '• ردیف ${PersianNumberFormatter.formatNumber(payment.rowNumber)}: ${PersianNumberFormatter.formatCurrency(payment.amount)}');
       }
       buffer.writeln();
     }
 
-    // Unmatched Receivables
+    // Unmatched Receivables - Detailed
     if (result.unmatchedReceivables.isNotEmpty) {
       buffer.writeln('دریافت‌های نامطابق:');
-      buffer.writeln('-' * 30);
+      buffer.writeln('=' * 30);
       for (final receivable in result.unmatchedReceivables) {
         buffer.writeln(
-            'ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}');
+            '• ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}');
       }
       buffer.writeln();
     }
 
     // Summary
-    buffer.writeln('خلاصه:');
-    buffer.writeln('-' * 30);
+    buffer.writeln('خلاصه نهایی:');
+    buffer.writeln('=' * 30);
     buffer.writeln(
         'تطبیق‌های دقیق: ${PersianNumberFormatter.formatNumber(result.totalExactMatches)}');
     buffer.writeln(
-        'تطبیق‌های ترکیبی: ${PersianNumberFormatter.formatNumber(result.totalCombinationMatches)}');
+        'تطبیق‌های ترکیبی: ${PersianNumberFormatter.formatNumber(selectedCombinations.length)}');
     buffer.writeln(
         'پرداخت‌های نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)}');
     buffer.writeln(

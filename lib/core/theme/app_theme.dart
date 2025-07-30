@@ -27,6 +27,7 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Vazirmatn',
       colorScheme: ColorScheme.light(
         primary: primaryColor,
         secondary: secondaryColor,
@@ -44,6 +45,7 @@ class AppTheme {
         elevation: 0,
         shadowColor: Colors.black.withOpacity(0.1),
         titleTextStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
           color: lightOnSurface,
           fontSize: 20,
           fontWeight: FontWeight.w600,
@@ -69,6 +71,7 @@ class AppTheme {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           textStyle: const TextStyle(
+            fontFamily: 'Vazirmatn',
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -83,6 +86,7 @@ class AppTheme {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           textStyle: const TextStyle(
+            fontFamily: 'Vazirmatn',
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -112,6 +116,7 @@ class AppTheme {
         indicatorColor: primaryColor,
         indicatorSize: TabBarIndicatorSize.tab,
         labelStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
@@ -123,7 +128,10 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: lightSurface,
         selectedColor: primaryColor.withOpacity(0.1),
-        labelStyle: const TextStyle(fontSize: 12),
+        labelStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 12,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -134,6 +142,7 @@ class AppTheme {
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Vazirmatn',
       colorScheme: ColorScheme.dark(
         primary: primaryColor,
         secondary: secondaryColor,
@@ -151,6 +160,7 @@ class AppTheme {
         elevation: 0,
         shadowColor: Colors.black.withOpacity(0.3),
         titleTextStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
           color: darkOnSurface,
           fontSize: 20,
           fontWeight: FontWeight.w600,
@@ -176,6 +186,7 @@ class AppTheme {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           textStyle: const TextStyle(
+            fontFamily: 'Vazirmatn',
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -190,6 +201,7 @@ class AppTheme {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           textStyle: const TextStyle(
+            fontFamily: 'Vazirmatn',
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -219,6 +231,7 @@ class AppTheme {
         indicatorColor: primaryColor,
         indicatorSize: TabBarIndicatorSize.tab,
         labelStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
@@ -230,7 +243,10 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: darkSurface,
         selectedColor: primaryColor.withOpacity(0.1),
-        labelStyle: const TextStyle(fontSize: 12),
+        labelStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 12,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),

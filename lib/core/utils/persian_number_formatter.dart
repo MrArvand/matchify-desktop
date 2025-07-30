@@ -46,17 +46,30 @@ class PersianNumberFormatter {
   /// Format a number with Persian digits and comma separators
   static String formatNumber(dynamic number) {
     if (number == null) return '۰';
-    
+
     String numStr = number.toString();
-    
+
     // Handle decimal numbers
     if (numStr.contains('.')) {
       final parts = numStr.split('.');
       final integerPart = _addCommas(parts[0]);
       final decimalPart = parts[1];
-      return '${toPersian(integerPart)}.${toPersian(decimalPart)}';
+
+      // Remove trailing zeros from decimal part
+      String cleanDecimalPart = decimalPart;
+      while (cleanDecimalPart.endsWith('0') && cleanDecimalPart.length > 1) {
+        cleanDecimalPart =
+            cleanDecimalPart.substring(0, cleanDecimalPart.length - 1);
+      }
+
+      // If decimal part is all zeros, don't show decimal
+      if (cleanDecimalPart == '0' || cleanDecimalPart.isEmpty) {
+        return toPersian(integerPart);
+      }
+
+      return '${toPersian(integerPart)}.${toPersian(cleanDecimalPart)}';
     }
-    
+
     return toPersian(_addCommas(numStr));
   }
 
@@ -81,4 +94,4 @@ class PersianNumberFormatter {
   static String formatPercentage(dynamic percentage) {
     return '${formatNumber(percentage)}%';
   }
-} 
+}

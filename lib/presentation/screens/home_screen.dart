@@ -6,6 +6,7 @@ import 'package:matchify_desktop/presentation/widgets/export_section.dart';
 import 'package:matchify_desktop/presentation/widgets/combination_selection_section.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
 import 'package:matchify_desktop/presentation/providers/matching_provider.dart';
+import 'package:matchify_desktop/presentation/screens/getting_started_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -51,6 +52,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: () => _showGettingStartedAgain(context),
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'راهنمای استفاده',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.primaryColor,
@@ -67,14 +75,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          FileUploadSection(),
-          MatchingResultsSection(),
-          CombinationSelectionSection(),
-          ExportSection(),
+      body: Column(
+        children: [
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: const [
+                FileUploadSection(),
+                MatchingResultsSection(),
+                CombinationSelectionSection(),
+                ExportSection(),
+              ],
+            ),
+          ),
+          // Copyright sticky bar
+          _buildCopyrightBar(context, theme),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCopyrightBar(BuildContext context, ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outline.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.asset(
+            'assets/img/rabin.png',
+            height: 20,
+            width: 20,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'طراحی و توسعه: رابین سامانه پارس',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGettingStartedAgain(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const GettingStartedScreen(),
       ),
     );
   }

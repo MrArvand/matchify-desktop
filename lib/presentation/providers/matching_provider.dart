@@ -11,6 +11,8 @@ class MatchingState {
   final List<PaymentRecord> payments;
   final List<ReceivableRecord> receivables;
   final MatchingResult? result;
+  final List<CombinationMatch>?
+      originalCombinationMatches; // Store original matches before selections
   final String? paymentsFilePath;
   final String? receivablesFilePath;
   final int paymentsAmountColumn;
@@ -24,6 +26,7 @@ class MatchingState {
     this.payments = const [],
     this.receivables = const [],
     this.result,
+    this.originalCombinationMatches,
     this.paymentsFilePath,
     this.receivablesFilePath,
     this.paymentsAmountColumn = 0,
@@ -38,6 +41,7 @@ class MatchingState {
     List<PaymentRecord>? payments,
     List<ReceivableRecord>? receivables,
     MatchingResult? result,
+    List<CombinationMatch>? originalCombinationMatches,
     String? paymentsFilePath,
     String? receivablesFilePath,
     int? paymentsAmountColumn,
@@ -51,6 +55,8 @@ class MatchingState {
       payments: payments ?? this.payments,
       receivables: receivables ?? this.receivables,
       result: result ?? this.result,
+      originalCombinationMatches:
+          originalCombinationMatches ?? this.originalCombinationMatches,
       paymentsFilePath: paymentsFilePath ?? this.paymentsFilePath,
       receivablesFilePath: receivablesFilePath ?? this.receivablesFilePath,
       paymentsAmountColumn: paymentsAmountColumn ?? this.paymentsAmountColumn,
@@ -164,6 +170,8 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
 
       state = state.copyWith(
         result: result,
+        originalCombinationMatches:
+            result.combinationMatches, // Store original matches
         isLoading: false,
         progress: 0.0,
         currentStep: 1, // Move to results step
@@ -180,16 +188,80 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
   void selectCombinationOption(int paymentRow, int optionIndex) {
     if (state.result == null) return;
 
+    // Get the selected option's receivable rows
+    final selectedMatch = state.result!.combinationMatches
+        .firstWhere((match) => match.payment.rowNumber == paymentRow);
+    final selectedOption = selectedMatch.options[optionIndex];
+    final selectedReceivableRows = selectedOption.receivables
+        .map((receivable) => receivable.rowNumber)
+        .toSet();
+
+    // Update combination matches with conflict prevention
     final updatedCombinationMatches =
         state.result!.combinationMatches.map((match) {
       if (match.payment.rowNumber == paymentRow) {
+        // This is the match being selected
         return CombinationMatch(
           payment: match.payment,
           options: match.options,
           selectedOptionIndex: optionIndex,
         );
+      } else {
+        // Check for conflicts with other matches
+        final conflictingOptions = <int>[];
+
+        for (int i = 0; i < match.options.length; i++) {
+          final option = match.options[i];
+          final optionReceivableRows = option.receivables
+              .map((receivable) => receivable.rowNumber)
+              .toSet();
+
+          // Check if this option shares any receivable rows with the selected option
+          final hasConflict = selectedReceivableRows
+              .intersection(optionReceivableRows)
+              .isNotEmpty;
+
+          if (hasConflict) {
+            conflictingOptions.add(i);
+          }
+        }
+
+        // If there are conflicts, remove the conflicting options
+        if (conflictingOptions.isNotEmpty) {
+          final filteredOptions = <CombinationOption>[];
+          for (int i = 0; i < match.options.length; i++) {
+            if (!conflictingOptions.contains(i)) {
+              filteredOptions.add(match.options[i]);
+            }
+          }
+
+          // Adjust selected option index if needed
+          int newSelectedIndex = match.selectedOptionIndex;
+          if (newSelectedIndex >= 0) {
+            // Count how many options were removed before this index
+            int removedBefore = 0;
+            for (int i = 0; i < newSelectedIndex; i++) {
+              if (conflictingOptions.contains(i)) {
+                removedBefore++;
+              }
+            }
+            newSelectedIndex -= removedBefore;
+
+            // If the selected option was removed, reset selection
+            if (conflictingOptions.contains(match.selectedOptionIndex)) {
+              newSelectedIndex = -1;
+            }
+          }
+
+          return CombinationMatch(
+            payment: match.payment,
+            options: filteredOptions,
+            selectedOptionIndex: newSelectedIndex,
+          );
+        }
+
+        return match;
       }
-      return match;
     }).toList();
 
     final updatedResult = MatchingResult(
@@ -207,33 +279,44 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
   void finalizeSelections() {
     if (state.result == null) return;
 
-    // Create user selection map
+    // Create user selection map - only include combinations that have valid selections
     final selections = <int, int>{};
+    final validCombinationMatches = <CombinationMatch>[];
+
     for (final match in state.result!.combinationMatches) {
-      if (match.selectedOptionIndex >= 0) {
+      if (match.options.isNotEmpty && match.selectedOptionIndex >= 0) {
+        // Only include combinations that have options and a valid selection
         selections[match.payment.rowNumber] = match.selectedOptionIndex;
+        validCombinationMatches.add(match);
       }
+      // Combinations with no options are excluded from final result
     }
 
     final userSelection = UserSelection(combinationSelections: selections);
 
-    // Apply selections with conflict prevention
-    final finalResult = MatchingService.applyUserSelections(
-      state.result!,
-      userSelection,
+    // Create updated result with only valid combinations
+    final updatedResult = MatchingResult(
+      exactMatches: state.result!.exactMatches,
+      combinationMatches: validCombinationMatches,
+      unmatchedPayments: state.result!.unmatchedPayments,
+      unmatchedReceivables: state.result!.unmatchedReceivables,
+      processingTime: state.result!.processingTime,
+      userSelection: userSelection,
     );
 
     state = state.copyWith(
-      result: finalResult,
+      result: updatedResult,
       currentStep: 3, // Move to export step
     );
   }
 
   void resetSelections() {
-    if (state.result == null) return;
+    if (state.result == null || state.originalCombinationMatches == null)
+      return;
 
-    final updatedCombinationMatches =
-        state.result!.combinationMatches.map((match) {
+    // Restore original combination matches with no selections
+    final restoredCombinationMatches =
+        state.originalCombinationMatches!.map((match) {
       return CombinationMatch(
         payment: match.payment,
         options: match.options,
@@ -243,7 +326,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
 
     final updatedResult = MatchingResult(
       exactMatches: state.result!.exactMatches,
-      combinationMatches: updatedCombinationMatches,
+      combinationMatches: restoredCombinationMatches,
       unmatchedPayments: state.result!.unmatchedPayments,
       unmatchedReceivables: state.result!.unmatchedReceivables,
       processingTime: state.result!.processingTime,

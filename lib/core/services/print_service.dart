@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:matchify_desktop/core/models/matching_result.dart';
 import 'package:matchify_desktop/core/utils/persian_number_formatter.dart';
@@ -14,9 +15,41 @@ class PrintService {
       final tempFile = File('${tempDir.path}/matching_report.html');
       await tempFile.writeAsString(htmlContent);
 
+      print('Debug: Temp file created at: ${tempFile.path}');
+      print('Debug: File exists: ${await tempFile.exists()}');
+
       // Open the file with default browser for printing
       if (Platform.isWindows) {
-        await Process.run('start', [tempFile.path]);
+        try {
+          // Method 1: Try using the default browser directly
+          print('Debug: Attempting to open with default browser...');
+          final result =
+              await Process.run('cmd', ['/c', 'start', '', tempFile.path]);
+          print('Debug: start command exit code: ${result.exitCode}');
+          print('Debug: start command stderr: ${result.stderr}');
+
+          if (result.exitCode != 0) {
+            // Method 2: Try using explorer
+            print('Debug: Trying explorer fallback...');
+            final explorerResult =
+                await Process.run('explorer', [tempFile.path]);
+            print('Debug: explorer exit code: ${explorerResult.exitCode}');
+            print('Debug: explorer stderr: ${explorerResult.stderr}');
+
+            if (explorerResult.exitCode != 0) {
+              // Method 3: Try using rundll32
+              print('Debug: Trying rundll32 fallback...');
+              final rundllResult = await Process.run(
+                  'rundll32', ['url.dll,FileProtocolHandler', tempFile.path]);
+              print('Debug: rundll32 exit code: ${rundllResult.exitCode}');
+              print('Debug: rundll32 stderr: ${rundllResult.stderr}');
+            }
+          }
+        } catch (e) {
+          print('Debug: Exception in Windows file opening: $e');
+          // Final fallback: try using explorer
+          await Process.run('explorer', [tempFile.path]);
+        }
       } else if (Platform.isMacOS) {
         await Process.run('open', [tempFile.path]);
       } else {
@@ -26,6 +59,7 @@ class PrintService {
       // Copy report to clipboard for manual printing
       await Clipboard.setData(ClipboardData(text: report));
     } catch (e) {
+      print('Debug: Exception in printReport: $e');
       throw Exception('خطا در چاپ گزارش: $e');
     }
   }
@@ -123,7 +157,7 @@ class PrintService {
     <title>گزارش تطبیق مبالغ</title>
     <style>
         body {
-            font-family: 'Tahoma', 'Arial', sans-serif;
+            font-family: 'Vazirmatn', 'Tahoma', 'Arial', sans-serif;
             margin: 20px;
             background-color: #f8f9fa;
             direction: rtl;

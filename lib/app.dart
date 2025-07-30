@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:matchify_desktop/presentation/screens/home_screen.dart';
+import 'package:matchify_desktop/presentation/screens/main_wrapper.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
 
 class MatchifyApp extends StatelessWidget {
@@ -20,7 +19,7 @@ class MatchifyApp extends StatelessWidget {
           child: child!,
         );
       },
-      home: const HomeScreen(),
+      home: const MainWrapper(),
     );
   }
 }

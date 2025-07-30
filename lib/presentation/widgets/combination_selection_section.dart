@@ -87,6 +87,7 @@ class CombinationSelectionSection extends ConsumerWidget {
     WidgetRef ref,
     ThemeData theme,
   ) {
+    final state = ref.watch(matchingProvider);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -125,11 +126,35 @@ class CombinationSelectionSection extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Options
-            Text(
-              'گزینه‌های ترکیب (${match.options.length} گزینه):',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              children: [
+                Text(
+                  'گزینه‌های ترکیب (${match.options.length} گزینه):',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (match.options.isEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warningColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                          color: AppTheme.warningColor.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      'تمام گزینه‌ها به دلیل تداخل حذف شدند',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.warningColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 12),
 
@@ -137,6 +162,27 @@ class CombinationSelectionSection extends ConsumerWidget {
               final index = entry.key;
               final option = entry.value;
               final isSelected = match.selectedOptionIndex == index;
+
+              // Get all selected receivable rows from other matches
+              final selectedReceivableRows = <int>{};
+              for (final otherMatch in state.result!.combinationMatches) {
+                if (otherMatch.payment.rowNumber != match.payment.rowNumber &&
+                    otherMatch.selectedOptionIndex >= 0) {
+                  final selectedOption =
+                      otherMatch.options[otherMatch.selectedOptionIndex];
+                  for (final receivable in selectedOption.receivables) {
+                    selectedReceivableRows.add(receivable.rowNumber);
+                  }
+                }
+              }
+
+              // Check which receivable rows in this option are already used
+              final usedReceivableRows = <int>{};
+              for (final receivable in option.receivables) {
+                if (selectedReceivableRows.contains(receivable.rowNumber)) {
+                  usedReceivableRows.add(receivable.rowNumber);
+                }
+              }
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -178,16 +224,31 @@ class CombinationSelectionSection extends ConsumerWidget {
                       Wrap(
                         spacing: 8,
                         children: option.receivables.map((receivable) {
+                          final isUsed =
+                              usedReceivableRows.contains(receivable.rowNumber);
                           return Chip(
                             label: Text(
                               'ردیف ${receivable.rowNumber}: ${receivable.amount.toStringAsFixed(2)}',
                             ),
-                            backgroundColor:
-                                AppTheme.secondaryColor.withOpacity(0.2),
-                            labelStyle: theme.textTheme.bodySmall,
+                            backgroundColor: isUsed
+                                ? AppTheme.warningColor.withOpacity(0.2)
+                                : AppTheme.secondaryColor.withOpacity(0.2),
+                            labelStyle: theme.textTheme.bodySmall?.copyWith(
+                              color: isUsed ? AppTheme.warningColor : null,
+                            ),
                           );
                         }).toList(),
                       ),
+                      if (usedReceivableRows.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'ردیف‌های ${usedReceivableRows.join(', ')} قبلاً انتخاب شده‌اند',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppTheme.warningColor,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   activeColor: AppTheme.accentColor,
@@ -205,43 +266,169 @@ class CombinationSelectionSection extends ConsumerWidget {
     WidgetRef ref,
     ThemeData theme,
   ) {
-    final hasUnselectedCombinations = state.result!.combinationMatches
-        .any((match) => match.selectedOptionIndex == -1);
+    // Check if all combinations with options have valid selections
+    bool canSubmit = true;
+    String? submitError;
 
-    return Row(
+    // Get combinations that have options (not empty due to conflicts)
+    final combinationsWithOptions = state.result!.combinationMatches
+        .where((match) => match.options.isNotEmpty)
+        .toList();
+
+    if (combinationsWithOptions.isEmpty) {
+      // All combinations were removed due to conflicts
+      canSubmit = false;
+      submitError =
+          'تمام ترکیب‌ها به دلیل تداخل با انتخاب‌های قبلی حذف شده‌اند';
+    } else {
+      // Check if all combinations with options have selections
+      for (final match in combinationsWithOptions) {
+        if (match.selectedOptionIndex == -1) {
+          canSubmit = false;
+          submitError = 'لطفاً برای تمام ترکیب‌های موجود گزینه‌ای انتخاب کنید';
+          break;
+        }
+      }
+    }
+
+    return Column(
       children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: hasUnselectedCombinations
-                ? null
-                : () {
-                    ref.read(matchingProvider.notifier).finalizeSelections();
-                  },
-            icon: const Icon(Icons.check),
-            label: const Text('تأیید انتخاب‌ها'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+        if (submitError != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.warningColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.warningColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.warningColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    submitError,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.warningColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        // Show summary of what will be finalized
+        if (canSubmit) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.accentColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.accentColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle_outline,
+                  color: AppTheme.accentColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'خلاصه انتخاب‌ها:',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.accentColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${state.result!.combinationMatches.where((match) => match.options.isNotEmpty && match.selectedOptionIndex >= 0).length} ترکیب انتخاب شده',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppTheme.accentColor.withOpacity(0.8),
+                        ),
+                      ),
+                      if (state.result!.combinationMatches.any((match) =>
+                          match.options.isNotEmpty &&
+                          match.selectedOptionIndex == -1)) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${state.result!.combinationMatches.where((match) => match.options.isNotEmpty && match.selectedOptionIndex == -1).length} ترکیب انتخاب نشده',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppTheme.warningColor,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                      if (state.result!.combinationMatches
+                          .any((match) => match.options.isEmpty)) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${state.result!.combinationMatches.where((match) => match.options.isEmpty).length} ترکیب به دلیل تداخل حذف خواهد شد',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppTheme.warningColor,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: canSubmit
+                    ? () {
+                        ref
+                            .read(matchingProvider.notifier)
+                            .finalizeSelections();
+                      }
+                    : null,
+                icon: const Icon(Icons.check),
+                label: const Text('تأیید انتخاب‌ها'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        OutlinedButton.icon(
-          onPressed: () {
-            ref.read(matchingProvider.notifier).resetSelections();
-          },
-          icon: const Icon(Icons.refresh),
-          label: const Text('بازنشانی انتخاب‌ها'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+            const SizedBox(width: 16),
+            OutlinedButton.icon(
+              onPressed: () {
+                ref.read(matchingProvider.notifier).resetSelections();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('بازنشانی انتخاب‌ها'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );
