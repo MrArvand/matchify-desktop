@@ -4,6 +4,7 @@ import 'package:matchify_desktop/presentation/widgets/file_upload_section.dart';
 import 'package:matchify_desktop/presentation/widgets/matching_results_section.dart';
 import 'package:matchify_desktop/presentation/widgets/export_section.dart';
 import 'package:matchify_desktop/presentation/widgets/combination_selection_section.dart';
+import 'package:matchify_desktop/presentation/widgets/theme_switch.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
 import 'package:matchify_desktop/presentation/providers/matching_provider.dart';
 import 'package:matchify_desktop/presentation/screens/getting_started_screen.dart';
@@ -53,6 +54,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         actions: [
+          const ThemeSwitch(),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: () => _showGettingStartedAgain(context),
             icon: const Icon(Icons.help_outline),

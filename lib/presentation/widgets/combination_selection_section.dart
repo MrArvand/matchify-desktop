@@ -4,6 +4,7 @@ import 'package:matchify_desktop/presentation/providers/matching_provider.dart';
 import 'package:matchify_desktop/core/models/matching_result.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
 import 'package:matchify_desktop/core/services/matching_service.dart';
+import 'package:matchify_desktop/core/constants/app_constants.dart';
 
 class CombinationSelectionSection extends ConsumerWidget {
   const CombinationSelectionSection({super.key});
@@ -32,7 +33,7 @@ class CombinationSelectionSection extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'برای هر پرداخت، ترکیب مورد نظر خود را انتخاب کنید',
+            'برای هر ${AppConstants.varangarShortName}، ترکیب مورد نظر خود را انتخاب کنید',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurface.withOpacity(0.7),
             ),
@@ -107,7 +108,7 @@ class CombinationSelectionSection extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ردیف پرداخت ${match.payment.rowNumber}',
+                        'ردیف ${AppConstants.varangarShortName} ${match.payment.rowNumber}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),

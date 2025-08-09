@@ -7,6 +7,7 @@ import 'package:matchify_desktop/core/theme/app_theme.dart';
 import 'package:matchify_desktop/core/services/print_service.dart';
 import 'package:matchify_desktop/core/utils/persian_number_formatter.dart';
 import 'package:matchify_desktop/core/models/matching_result.dart';
+import 'package:matchify_desktop/core/constants/app_constants.dart';
 
 class ExportSection extends ConsumerWidget {
   const ExportSection({super.key});
@@ -321,13 +322,13 @@ class ExportSection extends ConsumerWidget {
 
             // Unmatched Payments - Show all rows
             if (result.unmatchedPayments.isNotEmpty) ...[
-              _buildSectionHeader('پرداخت‌های نامطابق', Icons.warning,
-                  AppTheme.warningColor, theme),
+              _buildSectionHeader('${AppConstants.varangarShortName} نامطابق',
+                  Icons.warning, AppTheme.warningColor, theme),
               const SizedBox(height: 12),
               ...result.unmatchedPayments.map((payment) => _buildUnmatchedItem(
                     'ردیف ${PersianNumberFormatter.formatNumber(payment.rowNumber)}',
                     PersianNumberFormatter.formatCurrency(payment.amount),
-                    'پرداخت',
+                    AppConstants.varangarShortName,
                     theme,
                   )),
               const SizedBox(height: 20),
@@ -335,14 +336,14 @@ class ExportSection extends ConsumerWidget {
 
             // Unmatched Receivables - Show all rows
             if (result.unmatchedReceivables.isNotEmpty) ...[
-              _buildSectionHeader('دریافت‌های نامطابق', Icons.warning,
-                  AppTheme.warningColor, theme),
+              _buildSectionHeader('${AppConstants.bankShortName} نامطابق',
+                  Icons.warning, AppTheme.warningColor, theme),
               const SizedBox(height: 12),
               ...result.unmatchedReceivables.map((receivable) =>
                   _buildUnmatchedItem(
                     'ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}',
                     PersianNumberFormatter.formatCurrency(receivable.amount),
-                    'دریافت',
+                    AppConstants.bankShortName,
                     theme,
                   )),
             ],
@@ -410,7 +411,7 @@ class ExportSection extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'پرداخت: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
+                      '${AppConstants.varangarShortName}: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w500,
                       ),
@@ -430,7 +431,7 @@ class ExportSection extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'دریافت: ردیف ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}',
+                      '${AppConstants.bankShortName}: ردیف ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w500,
                       ),
@@ -502,7 +503,7 @@ class ExportSection extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'پرداخت: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
+                  '${AppConstants.varangarShortName}: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -520,7 +521,7 @@ class ExportSection extends ConsumerWidget {
 
           // Receivables combination
           Text(
-            'ترکیب انتخاب شده (${PersianNumberFormatter.formatNumber(selectedOption.receivables.length)} دریافت):',
+            'ترکیب انتخاب شده (${PersianNumberFormatter.formatNumber(selectedOption.receivables.length)} ${AppConstants.bankShortName}):',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -724,13 +725,13 @@ class ExportSection extends ConsumerWidget {
       buffer.writeln('=' * 30);
       for (final match in result.exactMatches) {
         buffer.writeln(
-            '• ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}');
+            '• ردیف ${AppConstants.varangarShortName} ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}');
         buffer.writeln(
-            '  مبلغ پرداخت: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
+            '  مبلغ ${AppConstants.varangarShortName}: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
         buffer.writeln(
-            '• ردیف دریافت ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}');
+            '• ردیف ${AppConstants.bankShortName} ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}');
         buffer.writeln(
-            '  مبلغ دریافت: ${PersianNumberFormatter.formatCurrency(match.receivable.amount)}');
+            '  مبلغ ${AppConstants.bankShortName}: ${PersianNumberFormatter.formatCurrency(match.receivable.amount)}');
         buffer.writeln(
             '• تطبیق: ${PersianNumberFormatter.formatCurrency(match.amount)}');
         buffer.writeln();
@@ -747,11 +748,11 @@ class ExportSection extends ConsumerWidget {
       for (final match in selectedCombinations) {
         final selectedOption = match.options[match.selectedOptionIndex];
         buffer.writeln(
-            '• ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}');
+            '• ردیف ${AppConstants.varangarShortName} ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}');
         buffer.writeln(
-            '  مبلغ پرداخت: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
+            '  مبلغ ${AppConstants.varangarShortName}: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
         buffer.writeln(
-            '• ترکیب انتخاب شده (${PersianNumberFormatter.formatNumber(selectedOption.receivables.length)} دریافت):');
+            '• ترکیب انتخاب شده (${PersianNumberFormatter.formatNumber(selectedOption.receivables.length)} ${AppConstants.bankShortName}):');
         for (final receivable in selectedOption.receivables) {
           buffer.writeln(
               '  - ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}');
@@ -764,7 +765,7 @@ class ExportSection extends ConsumerWidget {
 
     // Unmatched Payments - Detailed
     if (result.unmatchedPayments.isNotEmpty) {
-      buffer.writeln('پرداخت‌های نامطابق:');
+      buffer.writeln('${AppConstants.varangarShortName} نامطابق:');
       buffer.writeln('=' * 30);
       for (final payment in result.unmatchedPayments) {
         buffer.writeln(
@@ -775,7 +776,7 @@ class ExportSection extends ConsumerWidget {
 
     // Unmatched Receivables - Detailed
     if (result.unmatchedReceivables.isNotEmpty) {
-      buffer.writeln('دریافت‌های نامطابق:');
+      buffer.writeln('${AppConstants.bankShortName} نامطابق:');
       buffer.writeln('=' * 30);
       for (final receivable in result.unmatchedReceivables) {
         buffer.writeln(
@@ -792,9 +793,9 @@ class ExportSection extends ConsumerWidget {
     buffer.writeln(
         'تطبیق‌های ترکیبی: ${PersianNumberFormatter.formatNumber(selectedCombinations.length)}');
     buffer.writeln(
-        'پرداخت‌های نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)}');
+        '${AppConstants.varangarShortName} نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)}');
     buffer.writeln(
-        'دریافت‌های نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)}');
+        '${AppConstants.bankShortName} نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)}');
     buffer.writeln(
         'مجموع مبالغ تطابق‌شده: ${PersianNumberFormatter.formatCurrency(result.totalMatchedAmount)}');
 

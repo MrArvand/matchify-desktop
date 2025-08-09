@@ -5,6 +5,8 @@ import 'package:matchify_desktop/presentation/providers/matching_provider.dart';
 import 'package:matchify_desktop/core/services/excel_service.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
 import 'package:matchify_desktop/core/utils/persian_number_formatter.dart';
+import 'package:matchify_desktop/core/constants/app_constants.dart';
+import 'package:matchify_desktop/presentation/widgets/loading_dialog.dart';
 
 class FileUploadSection extends ConsumerStatefulWidget {
   const FileUploadSection({super.key});
@@ -17,6 +19,7 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
   List<String> paymentsHeaders = [];
   List<String> receivablesHeaders = [];
   bool isLoadingHeaders = false;
+  bool isShowingLoadingDialog = false;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +42,7 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
           ),
           const SizedBox(height: 8),
           Text(
-            'فایل‌های پرداخت و طلب خود را انتخاب کنید تا تطبیق شروع شود',
+            'فایل‌های خروجی فاکتورهای ورانگر و تراکنش های بانک را انتخاب کنید تا تطبیق شروع شود',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurface.withOpacity(0.7),
             ),
@@ -51,8 +54,8 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
             children: [
               Expanded(
                 child: _buildFileCard(
-                  title: 'فایل پرداخت‌ها',
-                  subtitle: 'مبالغ پرداخت‌ها',
+                  title: AppConstants.varangarFileTitle,
+                  subtitle: AppConstants.varangarFileSubtitle,
                   filePath: state.paymentsFilePath,
                   headers: paymentsHeaders,
                   onFileSelected: (path) async {
@@ -78,8 +81,8 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
               const SizedBox(width: 24),
               Expanded(
                 child: _buildFileCard(
-                  title: 'فایل طلب‌ها',
-                  subtitle: 'مبالغ طلب‌ها',
+                  title: AppConstants.bankFileTitle,
+                  subtitle: AppConstants.bankFileSubtitle,
                   filePath: state.receivablesFilePath,
                   headers: receivablesHeaders,
                   onFileSelected: (path) async {
@@ -99,6 +102,14 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                       await notifier.loadReceivablesFile();
                     }
                   },
+                  refCodeColumn: state.receivablesRefCodeColumn,
+                  onRefCodeColumnChanged: (columnIndex) async {
+                    notifier.setReceivablesRefCodeColumn(columnIndex);
+                    // Automatically load data when column is selected
+                    if (state.receivablesFilePath != null) {
+                      await notifier.loadReceivablesFile();
+                    }
+                  },
                   isLoading: false, // Hide loading
                   progress: state.progress,
                 ),
@@ -109,6 +120,16 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
 
           // Action Buttons
           _buildActionButtons(state, notifier),
+
+          // Loading Dialog
+          if (isShowingLoadingDialog)
+            LoadingDialog(
+              title: 'در حال پردازش',
+              message: state.receivablesRefCodeColumn != null
+                  ? 'در حال تطبیق بر اساس کد مرجع...'
+                  : 'در حال یافتن ترکیب‌های ممکن...',
+              progress: state.progress,
+            ),
           const SizedBox(height: 24),
 
           // Error Display
@@ -126,6 +147,8 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
     required Function(String) onFileSelected,
     required int amountColumn,
     required Function(int?) onColumnChanged,
+    int? refCodeColumn,
+    Function(int?)? onRefCodeColumnChanged,
     required bool isLoading,
     required double progress,
   }) {
@@ -253,6 +276,48 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                 }).toList(),
                 onChanged: onColumnChanged,
               ),
+              const SizedBox(height: 16),
+
+              // Ref Code Column Selection (only for bank file)
+              if (title.contains(AppConstants.bankFileTitle) &&
+                  onRefCodeColumnChanged != null) ...[
+                Text(
+                  'ستون کد مرجع (اختیاری):',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value: refCodeColumn != null && refCodeColumn < headers.length
+                      ? refCodeColumn
+                      : null,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    hintText: 'انتخاب نکنید',
+                  ),
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: null,
+                      child: Text('انتخاب نکنید'),
+                    ),
+                    ...headers.asMap().entries.map((entry) {
+                      return DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(
+                            '${PersianNumberFormatter.formatNumber(entry.key + 1)}: ${entry.value}'),
+                      );
+                    }).toList(),
+                  ],
+                  onChanged: onRefCodeColumnChanged,
+                ),
+              ],
             ],
           ],
         ),
@@ -268,7 +333,17 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
             onPressed: state.payments.isNotEmpty &&
                     state.receivables.isNotEmpty &&
                     !state.isLoading
-                ? () => notifier.performMatching()
+                ? () async {
+                    setState(() {
+                      isShowingLoadingDialog = true;
+                    });
+                    await notifier.performMatching();
+                    if (mounted) {
+                      setState(() {
+                        isShowingLoadingDialog = false;
+                      });
+                    }
+                  }
                 : null,
             icon: const Icon(Icons.play_arrow),
             label: const Text('شروع تطبیق'),

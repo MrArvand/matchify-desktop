@@ -11,6 +11,7 @@ class ExcelService {
     required int amountColumnIndex,
     required int startRow,
     required Function(double) onProgress,
+    int? refCodeColumnIndex,
   }) async {
     try {
       final bytes = await File(filePath).readAsBytes();
@@ -40,11 +41,19 @@ class ExcelService {
         final amount = MatchingService.parseAmount(amountStr);
         if (amount <= 0) continue;
 
+        // Extract ref code if column is specified
+        String? refCode;
+        if (refCodeColumnIndex != null && refCodeColumnIndex < rowData.length) {
+          final refCodeCell = rowData[refCodeColumnIndex];
+          refCode = refCodeCell?.value?.toString();
+        }
+
         records.add(
           Record(
             rowNumber: row + 1, // Excel rows are 1-indexed
             amount: amount,
             originalAmount: amountStr,
+            refCode: refCode,
             additionalData: _extractAdditionalData(rowData, amountColumnIndex),
           ),
         );

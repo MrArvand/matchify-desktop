@@ -17,6 +17,7 @@ class MatchingState {
   final String? receivablesFilePath;
   final int paymentsAmountColumn;
   final int receivablesAmountColumn;
+  final int? receivablesRefCodeColumn; // Optional ref code column for bank file
   final int currentStep; // 0: Upload, 1: Results, 2: Selection, 3: Export
 
   MatchingState({
@@ -31,6 +32,7 @@ class MatchingState {
     this.receivablesFilePath,
     this.paymentsAmountColumn = 0,
     this.receivablesAmountColumn = 0,
+    this.receivablesRefCodeColumn,
     this.currentStep = 0,
   });
 
@@ -46,6 +48,7 @@ class MatchingState {
     String? receivablesFilePath,
     int? paymentsAmountColumn,
     int? receivablesAmountColumn,
+    int? receivablesRefCodeColumn,
     int? currentStep,
   }) {
     return MatchingState(
@@ -62,6 +65,8 @@ class MatchingState {
       paymentsAmountColumn: paymentsAmountColumn ?? this.paymentsAmountColumn,
       receivablesAmountColumn:
           receivablesAmountColumn ?? this.receivablesAmountColumn,
+      receivablesRefCodeColumn:
+          receivablesRefCodeColumn ?? this.receivablesRefCodeColumn,
       currentStep: currentStep ?? this.currentStep,
     );
   }
@@ -88,6 +93,10 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
     if (columnIndex != null) {
       state = state.copyWith(receivablesAmountColumn: columnIndex);
     }
+  }
+
+  void setReceivablesRefCodeColumn(int? columnIndex) {
+    state = state.copyWith(receivablesRefCodeColumn: columnIndex);
   }
 
   Future<void> loadPaymentsFile() async {
@@ -133,6 +142,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
         onProgress: (progress) {
           state = state.copyWith(progress: progress);
         },
+        refCodeColumnIndex: state.receivablesRefCodeColumn,
       );
 
       final receivables =
@@ -166,6 +176,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
         onProgress: (progress) {
           state = state.copyWith(progress: progress);
         },
+        useRefCodeMatching: state.receivablesRefCodeColumn != null,
       );
 
       state = state.copyWith(

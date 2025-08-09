@@ -4,6 +4,7 @@ import 'package:matchify_desktop/presentation/providers/matching_provider.dart';
 import 'package:matchify_desktop/core/services/matching_service.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
 import 'package:matchify_desktop/core/models/matching_result.dart';
+import 'package:matchify_desktop/core/constants/app_constants.dart';
 
 class MatchingResultsSection extends ConsumerWidget {
   const MatchingResultsSection({super.key});
@@ -51,7 +52,7 @@ class MatchingResultsSection extends ConsumerWidget {
 
           // Combination Matches
           if (state.result!.combinationMatches.isNotEmpty) ...[
-            _buildCombinationMatchesSection(state.result!, theme),
+            _buildCombinationMatchesSection(state.result!, theme, state),
             const SizedBox(height: 24),
           ],
 
@@ -117,7 +118,7 @@ class MatchingResultsSection extends ConsumerWidget {
         const SizedBox(width: 16),
         Expanded(
           child: _buildStatCard(
-            title: 'پرداخت‌های نامطابق',
+            title: '${AppConstants.varangarShortName} نامطابق',
             value: result.totalUnmatchedPayments.toString(),
             icon: Icons.warning,
             color: AppTheme.warningColor,
@@ -127,7 +128,7 @@ class MatchingResultsSection extends ConsumerWidget {
         const SizedBox(width: 16),
         Expanded(
           child: _buildStatCard(
-            title: 'دریافت‌های نامطابق',
+            title: '${AppConstants.bankShortName} نامطابق',
             value: result.totalUnmatchedReceivables.toString(),
             icon: Icons.warning,
             color: AppTheme.warningColor,
@@ -200,11 +201,13 @@ class MatchingResultsSection extends ConsumerWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('ردیف پرداخت')),
-                  DataColumn(label: Text('مبلغ پرداخت')),
-                  DataColumn(label: Text('ردیف دریافت')),
-                  DataColumn(label: Text('مبلغ دریافت')),
+                columns: [
+                  DataColumn(
+                      label: Text('ردیف ${AppConstants.varangarShortName}')),
+                  DataColumn(
+                      label: Text('مبلغ ${AppConstants.varangarShortName}')),
+                  DataColumn(label: Text('ردیف ${AppConstants.bankShortName}')),
+                  DataColumn(label: Text('مبلغ ${AppConstants.bankShortName}')),
                 ],
                 rows: result.exactMatches.map((match) {
                   return DataRow(
@@ -235,6 +238,7 @@ class MatchingResultsSection extends ConsumerWidget {
   Widget _buildCombinationMatchesSection(
     MatchingResult result,
     ThemeData theme,
+    MatchingState state,
   ) {
     return Card(
       elevation: 2,
@@ -268,7 +272,7 @@ class MatchingResultsSection extends ConsumerWidget {
                       Row(
                         children: [
                           Text(
-                            'ردیف پرداخت ${match.payment.rowNumber}',
+                            'ردیف ${AppConstants.varangarShortName} ${match.payment.rowNumber}',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -331,7 +335,7 @@ class MatchingResultsSection extends ConsumerWidget {
                         ),
                       ] else ...[
                         Text(
-                          '${match.options.length} گزینه ترکیب موجود',
+                          '${match.options.length} ${state.receivablesRefCodeColumn != null ? 'کد مرجع تطبیق یافته' : 'گزینه ترکیب موجود'}',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: theme.colorScheme.onSurface.withOpacity(0.7),
@@ -379,7 +383,7 @@ class MatchingResultsSection extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'پرداخت‌های نامطابق (${result.unmatchedPayments.length})',
+                        '${AppConstants.varangarShortName} نامطابق (${result.unmatchedPayments.length})',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -407,7 +411,7 @@ class MatchingResultsSection extends ConsumerWidget {
                     })
                   else
                     Text(
-                      'پرداختی نامطابق وجود ندارد',
+                      '${AppConstants.varangarShortName} نامطابق وجود ندارد',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
@@ -438,7 +442,7 @@ class MatchingResultsSection extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'دریافت‌های نامطابق (${result.unmatchedReceivables.length})',
+                        '${AppConstants.bankShortName} نامطابق (${result.unmatchedReceivables.length})',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -466,7 +470,7 @@ class MatchingResultsSection extends ConsumerWidget {
                     })
                   else
                     Text(
-                      'دریافتی نامطابق وجود ندارد',
+                      '${AppConstants.bankShortName} نامطابق وجود ندارد',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),

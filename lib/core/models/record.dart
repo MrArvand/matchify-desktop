@@ -2,12 +2,14 @@ class Record {
   final int rowNumber;
   final double amount;
   final String originalAmount;
+  final String? refCode;
   final Map<String, dynamic> additionalData;
 
   Record({
     required this.rowNumber,
     required this.amount,
     required this.originalAmount,
+    this.refCode,
     this.additionalData = const {},
   });
 
@@ -16,6 +18,7 @@ class Record {
       rowNumber: map['rowNumber'] ?? 0,
       amount: (map['amount'] ?? 0.0).toDouble(),
       originalAmount: map['originalAmount'] ?? '',
+      refCode: map['refCode'],
       additionalData: Map<String, dynamic>.from(map['additionalData'] ?? {}),
     );
   }
@@ -25,6 +28,7 @@ class Record {
       'rowNumber': rowNumber,
       'amount': amount,
       'originalAmount': originalAmount,
+      'refCode': refCode,
       'additionalData': additionalData,
     };
   }

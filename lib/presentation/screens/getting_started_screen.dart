@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:matchify_desktop/core/constants/app_constants.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
+import 'package:matchify_desktop/presentation/widgets/theme_switch.dart';
 import 'package:matchify_desktop/presentation/screens/home_screen.dart';
 
 class GettingStartedScreen extends ConsumerWidget {
@@ -22,8 +23,19 @@ class GettingStartedScreen extends ConsumerWidget {
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back),
               ),
+              actions: const [
+                ThemeSwitch(),
+                SizedBox(width: 8),
+              ],
             )
-          : null,
+          : AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              actions: const [
+                ThemeSwitch(),
+                SizedBox(width: 8),
+              ],
+            ),
       body: Column(
         children: [
           // Main content
@@ -53,7 +65,7 @@ class GettingStartedScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'راهنمای استفاده از نرم‌افزار تطبیق پرداخت‌ها و دریافت‌ها',
+                          'راهنمای استفاده از نرم‌افزار تطبیق فاکتورهای ورانگر و تراکنش های بانک',
                           style: theme.textTheme.titleMedium?.copyWith(
                             color: theme.colorScheme.onSurface.withOpacity(0.7),
                           ),
@@ -69,7 +81,7 @@ class GettingStartedScreen extends ConsumerWidget {
                     context,
                     theme,
                     'مرحله اول: آپلود فایل‌ها',
-                    'فایل‌های اکسل حاوی پرداخت‌ها و دریافت‌ها را آپلود کنید. نرم‌افزار از فرمت‌های .xlsx و .xls پشتیبانی می‌کند.',
+                    'فایل‌های اکسل حاوی خروجی فاکتورهای ورانگر و خروجی تراکنش های بانک را آپلود کنید. نرم‌افزار از فرمت‌های .xlsx و .xls پشتیبانی می‌کند.',
                     Icons.upload_file,
                     AppTheme.primaryColor,
                   ),
@@ -79,7 +91,7 @@ class GettingStartedScreen extends ConsumerWidget {
                     context,
                     theme,
                     'مرحله دوم: تحلیل و تطبیق',
-                    'نرم‌افزار به طور خودکار پرداخت‌ها و دریافت‌ها را بر اساس مبلغ تطبیق می‌دهد. تطبیق‌های دقیق و ترکیبی شناسایی می‌شوند.',
+                    'نرم‌افزار به طور خودکار فاکتورهای ورانگر و تراکنش های بانک را بر اساس مبلغ تطبیق می‌دهد. تطبیق‌های دقیق و ترکیبی شناسایی می‌شوند.',
                     Icons.analytics,
                     AppTheme.accentColor,
                   ),
