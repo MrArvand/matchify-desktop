@@ -29,10 +29,10 @@ jobs:
           echo "Flutter build completed"
           
           # Check if build was successful
-          if (Test-Path "build\windows\runner\Release") {
+          if (Test-Path "build\windows\x64\runner\Release") {
             echo "✅ Build successful - Release directory exists"
             echo "Build contents:"
-            Get-ChildItem "build\windows\runner\Release" | Select-Object Name, Length
+            Get-ChildItem "build\windows\x64\runner\Release" | Select-Object Name, Length
           } else {
             echo "❌ Build failed - Release directory not found"
             echo "Available build directories:"
@@ -47,9 +47,9 @@ jobs:
       - name: List build directory contents
         run: |
           echo "Checking build directory structure..."
-          if (Test-Path "build\windows\runner\Release") {
+          if (Test-Path "build\windows\x64\runner\Release") {
             echo "Release directory exists"
-            Get-ChildItem "build\windows\runner\Release" -Recurse | Select-Object Name, Length, FullName
+            Get-ChildItem "build\windows\x64\runner\Release" -Recurse | Select-Object Name, Length, FullName
           } else {
             echo "Release directory does not exist"
             echo "Available directories:"
@@ -62,9 +62,9 @@ jobs:
           $version = $version -replace "v", ""
           
           # Check if build directory exists
-          if (Test-Path "build\windows\runner\Release") {
+          if (Test-Path "build\windows\x64\runner\Release") {
             echo "Creating archive for version: $version"
-            Compress-Archive -Path "build\windows\runner\Release\*" -DestinationPath "matchify-desktop-windows-$version.zip" -Force
+            Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "matchify-desktop-windows-$version.zip" -Force
             echo "Archive created successfully"
             
             # List the created archive
