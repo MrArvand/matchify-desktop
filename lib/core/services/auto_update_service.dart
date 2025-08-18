@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:auto_updater/auto_updater.dart';
 import 'package:path_provider/path_provider.dart';
 
 class AutoUpdateService {
