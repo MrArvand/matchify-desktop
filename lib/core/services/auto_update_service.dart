@@ -3,212 +3,221 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class UpdateInfo {
+  final String version;
+  final String downloadUrl;
+  final String releaseNotes;
+  final DateTime releaseDate;
+  final bool isMandatory;
+  final int fileSize;
+
+  UpdateInfo({
+    required this.version,
+    required this.downloadUrl,
+    required this.releaseNotes,
+    required this.releaseDate,
+    required this.isMandatory,
+    required this.fileSize,
+  });
+
+  factory UpdateInfo.fromJson(Map<String, dynamic> json) {
+    return UpdateInfo(
+      version: json['version'] ?? '',
+      downloadUrl: json['download_url'] ?? '',
+      releaseNotes: json['release_notes'] ?? '',
+      releaseDate:
+          DateTime.tryParse(json['release_date'] ?? '') ?? DateTime.now(),
+      isMandatory: json['is_mandatory'] ?? false,
+      fileSize: json['file_size'] ?? 0,
+    );
+  }
+}
 
 class AutoUpdateService {
-  static const String _githubRepo = 'MrArvand/matchify-desktop';
-  static const String _githubApiUrl =
-      'https://api.github.com/repos/$_githubRepo/releases/latest';
+  // TODO: Replace with your actual GitHub repository information
+  static const String _updateCheckUrl =
+      'https://api.github.com/repos/MrArvand/matchify-desktop/releases/latest';
+  static const String _githubRepoUrl =
+      'https://github.com/MrArvand/matchify-desktop';
 
-  /// Check if there's a new version available
+  /// Check if repository URLs are properly configured
+  static bool get isConfigured {
+    return !_updateCheckUrl.contains('YOUR_USERNAME') &&
+        !_updateCheckUrl.contains('YOUR_REPO');
+  }
+
+  /// Get configuration instructions
+  static String get configurationInstructions {
+    return '''
+برای تنظیم سیستم به‌روزرسانی خودکار:
+
+1. فایل `lib/core/services/auto_update_service.dart` را باز کنید
+2. خطوط زیر را پیدا کنید:
+   ```dart
+   static const String _updateCheckUrl = 'https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/releases/latest';
+   static const String _githubRepoUrl = 'https://github.com/YOUR_USERNAME/YOUR_REPO';
+   ```
+3. `YOUR_USERNAME` را با نام کاربری GitHub خود جایگزین کنید
+4. `YOUR_REPO` را با نام مخزن GitHub خود جایگزین کنید
+
+مثال:
+```dart
+static const String _updateCheckUrl = 'https://api.github.com/repos/johndoe/matchify-desktop/releases/latest';
+static const String _githubRepoUrl = 'https://github.com/johndoe/matchify-desktop';
+```
+''';
+  }
+
+  /// Check for available updates
   static Future<UpdateInfo?> checkForUpdates() async {
+    // Check if repository is configured
+    if (!isConfigured) {
+      print(
+          'Debug: Repository URLs not configured. Please update the URLs in auto_update_service.dart');
+      throw Exception(
+          'Repository URLs not configured. Please update the URLs in auto_update_service.dart');
+    }
+    
     try {
-      // Get current app version
-      final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
-
-      // Fetch latest release from GitHub
-      final response = await http.get(Uri.parse(_githubApiUrl));
-
+      print('Debug: Checking for updates...');
+      final response = await http.get(Uri.parse(_updateCheckUrl));
+      
       if (response.statusCode == 200) {
         final releaseData = json.decode(response.body);
         final latestVersion =
             releaseData['tag_name']?.replaceAll('v', '') ?? '';
-        final releaseNotes = releaseData['body'] ?? '';
-        final downloadUrl = _getDownloadUrl(releaseData['assets']);
+        
+        print('Debug: Latest version from GitHub: $latestVersion');
+
+        // Get current app version
+        final packageInfo = await PackageInfo.fromPlatform();
+        final currentVersion = packageInfo.version;
+
+        print('Debug: Current app version: $currentVersion');
 
         // Compare versions
-        if (_isNewerVersion(latestVersion, currentVersion)) {
-          return UpdateInfo(
-            currentVersion: currentVersion,
-            latestVersion: latestVersion,
-            releaseNotes: releaseNotes,
-            downloadUrl: downloadUrl,
-            isAvailable: true,
-          );
-        }
-      }
+        if (_compareVersions(latestVersion, currentVersion) > 0) {
+          print('Debug: New version available!');
+          // New version available
+          final assets = releaseData['assets'] as List?;
+          if (assets != null && assets.isNotEmpty) {
+            print('Debug: Found ${assets.length} assets');
+            // Find Windows executable asset
+            final windowsAsset = assets.firstWhere(
+              (asset) => asset['name']?.toString().contains('.exe') == true,
+              orElse: () => null,
+            );
 
-      return UpdateInfo(
-        currentVersion: currentVersion,
-        latestVersion: currentVersion,
-        releaseNotes: '',
-        downloadUrl: '',
-        isAvailable: false,
-      );
+            if (windowsAsset != null) {
+              print('Debug: Found Windows asset: ${windowsAsset['name']}');
+              return UpdateInfo(
+                version: latestVersion,
+                downloadUrl: windowsAsset['browser_download_url'] ?? '',
+                releaseNotes: releaseData['body'] ?? '',
+                releaseDate:
+                    DateTime.tryParse(releaseData['published_at'] ?? '') ??
+                        DateTime.now(),
+                isMandatory: false, // You can make this configurable
+                fileSize: windowsAsset['size'] ?? 0,
+              );
+            } else {
+              print('Debug: No Windows executable found in assets');
+            }
+          } else {
+            print('Debug: No assets found in release');
+          }
+        } else {
+          print('Debug: No update needed - current version is up to date');
+        }
+      } else {
+        print('Debug: GitHub API returned status code: ${response.statusCode}');
+      }
     } catch (e) {
       print('Error checking for updates: $e');
-      return null;
+      rethrow;
     }
+    
+    return null;
   }
 
-  /// Get the appropriate download URL based on platform
-  static String _getDownloadUrl(List<dynamic> assets) {
-    if (assets == null || assets.isEmpty) return '';
-
-    final platform = Platform.operatingSystem;
-
-    for (final asset in assets) {
-      final assetName = asset['name']?.toString().toLowerCase() ?? '';
-
-      if (platform == 'windows' && assetName.contains('.exe')) {
-        return asset['browser_download_url'] ?? '';
-      } else if (platform == 'macos' && assetName.contains('.dmg')) {
-        return asset['browser_download_url'] ?? '';
-      } else if (platform == 'linux' && assetName.contains('.deb')) {
-        return asset['browser_download_url'] ?? '';
-      }
-    }
-
-    return assets.first['browser_download_url'] ?? '';
-  }
-
-  /// Compare version strings to determine if new version is available
-  static bool _isNewerVersion(String newVersion, String currentVersion) {
+  /// Download the update
+  static Future<String?> downloadUpdate(
+      UpdateInfo updateInfo, Function(double) onProgress) async {
     try {
-      final newParts = newVersion.split('.').map(int.parse).toList();
-      final currentParts = currentVersion.split('.').map(int.parse).toList();
+      final response = await http.get(
+        Uri.parse(updateInfo.downloadUrl),
+        headers: {'User-Agent': 'Matchify-Desktop-Updater'},
+      );
 
-      // Pad with zeros if needed
-      while (newParts.length < currentParts.length) newParts.add(0);
-      while (currentParts.length < newParts.length) currentParts.add(0);
-
-      for (int i = 0; i < newParts.length; i++) {
-        if (newParts[i] > currentParts[i]) return true;
-        if (newParts[i] < currentParts[i]) return false;
+      if (response.statusCode == 200) {
+        final tempDir = await getTemporaryDirectory();
+        final updateFile = File('${tempDir.path}/matchify_update.exe');
+        
+        // Write the file with progress tracking
+        final bytes = response.bodyBytes;
+        final totalBytes = bytes.length;
+        
+        await updateFile.writeAsBytes(bytes);
+        
+        onProgress(1.0); // Download complete
+        return updateFile.path;
       }
-
-      return false; // Same version
     } catch (e) {
-      return false;
+      print('Error downloading update: $e');
     }
+    
+    return null;
   }
 
-  /// Download and install the update
-  static Future<bool> downloadAndInstallUpdate(String downloadUrl) async {
+  /// Install the update
+  static Future<bool> installUpdate(String updateFilePath) async {
     try {
-      // Get temporary directory for download
-      final tempDir = await getTemporaryDirectory();
-      final fileName = downloadUrl.split('/').last;
-      final filePath = '${tempDir.path}/$fileName';
-
-      // Download the file
-      final response = await http.get(Uri.parse(downloadUrl));
-      if (response.statusCode != 200) {
-        throw Exception('Failed to download update');
-      }
-
-      // Save the file
-      final file = File(filePath);
-      await file.writeAsBytes(response.bodyBytes);
-
-      // Install the update based on platform
       if (Platform.isWindows) {
-        return await _installWindowsUpdate(filePath);
-      } else if (Platform.isMacOS) {
-        return await _installMacOSUpdate(filePath);
-      } else if (Platform.isLinux) {
-        return await _installLinuxUpdate(filePath);
+        // On Windows, we need to launch the installer
+        // The installer should handle the update process
+        final result = await Process.run(updateFilePath, []);
+        return result.exitCode == 0;
       }
-
-      return false;
     } catch (e) {
-      print('Error downloading/installing update: $e');
-      return false;
+      print('Error installing update: $e');
+    }
+    
+    return false;
+  }
+
+  /// Open GitHub releases page
+  static Future<void> openReleasesPage() async {
+    final url = Uri.parse('$_githubRepoUrl/releases');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
     }
   }
 
-  /// Install update on Windows
-  static Future<bool> _installWindowsUpdate(String filePath) async {
-    try {
-      // For Windows, we'll launch the installer
-      final result = await Process.run('cmd', ['/c', 'start', '', filePath]);
-      return result.exitCode == 0;
-    } catch (e) {
-      print('Error installing Windows update: $e');
-      return false;
+  /// Compare version strings (returns 1 if version1 > version2, -1 if version1 < version2, 0 if equal)
+  static int _compareVersions(String version1, String version2) {
+    final v1Parts = version1.split('.').map(int.parse).toList();
+    final v2Parts = version2.split('.').map(int.parse).toList();
+    
+    // Pad with zeros if needed
+    while (v1Parts.length < v2Parts.length) v1Parts.add(0);
+    while (v2Parts.length < v1Parts.length) v2Parts.add(0);
+    
+    for (int i = 0; i < v1Parts.length; i++) {
+      if (v1Parts[i] > v2Parts[i]) return 1;
+      if (v1Parts[i] < v2Parts[i]) return -1;
     }
+    
+    return 0;
   }
 
-  /// Install update on macOS
-  static Future<bool> _installMacOSUpdate(String filePath) async {
-    try {
-      // For macOS, mount the DMG and copy the app
-      final result = await Process.run('open', [filePath]);
-      return result.exitCode == 0;
-    } catch (e) {
-      print('Error installing macOS update: $e');
-      return false;
-    }
-  }
-
-  /// Install update on Linux
-  static Future<bool> _installLinuxUpdate(String filePath) async {
-    try {
-      // For Linux, install the DEB package
-      final result = await Process.run('sudo', ['dpkg', '-i', filePath]);
-      return result.exitCode == 0;
-    } catch (e) {
-      print('Error installing Linux update: $e');
-      return false;
-    }
-  }
-
-  /// Get current app version
-  static Future<String> getCurrentVersion() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      return packageInfo.version;
-    } catch (e) {
-      return 'Unknown';
-    }
-  }
-
-  /// Get app build number
-  static Future<String> getBuildNumber() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      return packageInfo.buildNumber;
-    } catch (e) {
-      return 'Unknown';
-    }
-  }
-}
-
-/// Data class for update information
-class UpdateInfo {
-  final String currentVersion;
-  final String latestVersion;
-  final String releaseNotes;
-  final String downloadUrl;
-  final bool isAvailable;
-
-  UpdateInfo({
-    required this.currentVersion,
-    required this.latestVersion,
-    required this.releaseNotes,
-    required this.downloadUrl,
-    required this.isAvailable,
-  });
-
-  /// Get formatted version comparison text
-  String get versionComparisonText {
-    if (!isAvailable) return 'نسخه فعلی: $currentVersion';
-    return 'نسخه فعلی: $currentVersion → نسخه جدید: $latestVersion';
-  }
-
-  /// Get update size (if available)
-  String get updateSize {
-    // This would need to be implemented based on your GitHub release structure
-    return 'نامشخص';
+  /// Format file size for display
+  static String formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

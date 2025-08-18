@@ -1,119 +1,62 @@
-name: Release Desktop App
+name: Release Windows Build
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
-    timeout-minutes: 30
+    
     steps:
-      - uses: actions/checkout@v4
-
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: "stable"
-
-      - name: Flutter Doctor
-        run: flutter doctor -v
-
+          flutter-version: '3.19.0'  # Matches your pubspec.yaml SDK constraint
+          channel: 'stable'
+          
       - name: Get dependencies
         run: flutter pub get
-
-      - name: Check Flutter Project
+        
+      - name: Build Windows executable
+        run: flutter build windows --release
+        
+      - name: Create release archive
         run: |
-          echo "Checking Flutter project configuration..."
-          flutter config
-          echo "Available platforms:"
-          flutter devices
-          echo "Project structure:"
-          dir
-          echo "Windows folder exists:"
-          if (Test-Path "windows") { echo "Yes" } else { echo "No" }
-
-      - name: Build Windows
-        run: |
-          echo "Building Windows application..."
-          flutter build windows --release --verbose
-          echo "Build completed"
-
-      - name: Verify Build Output
-        run: |
-          echo "Verifying Flutter build output..."
-          if (Test-Path "build\windows\runner\Release") {
-            echo "Build output directory exists"
-            dir build\windows\runner\Release
-          } else {
-            echo "Build output directory does not exist"
-            echo "Checking build directory structure..."
-            dir build
-            if (Test-Path "build\windows") {
-              dir build\windows
-              if (Test-Path "build\windows\runner") {
-                dir build\windows\runner
-              }
-            }
-            exit 1
-          }
-
-      - name: List Build Output
-        run: |
-          echo "Checking build output structure..."
-          dir build\windows\runner\Release
-          echo "Build output listing completed"
-
-      - name: Create Windows Installer
-        run: |
-          echo "Creating Windows installer..."
-          cd build\windows\runner\Release
-          dir
-          echo "Creating 7z archive..."
-          7z a -t7z matchify-desktop-windows.7z *
-          echo "Installer created successfully"
-
-      - name: Upload Windows Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/windows/runner/Release/matchify-desktop-windows.7z
-          asset_name: matchify-desktop-windows.7z
-          asset_content_type: application/x-7z-compressed
-
-  create-release:
-    needs: [build-windows]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
+          $version = "${{ github.ref_name }}"
+          $version = $version -replace "v", ""
+          Compress-Archive -Path "build\windows\runner\Release\*" -DestinationPath "matchify-desktop-windows-$version.zip"
+          
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          files: |
+            matchify-desktop-windows-${{ github.ref_name }}.zip
           body: |
-            ## What's New
-
-            This release includes:
-            - Bug fixes and improvements
-            - Performance enhancements
-            - New features
-
-            ## Downloads
-
-            - **Windows**: Download the .7z file and extract to run
-
-            ## Installation
-
-            1. Download the Windows .7z file
-            2. Extract the contents to a folder
-            3. Run the matchify_desktop.exe file
-            4. Check for updates from within the app!
+            ## نسخه ${{ github.ref_name }}
+            
+            ### تغییرات:
+            - بهبود عملکرد سیستم تطبیق
+            - رفع مشکلات گزارش‌گیری
+            - بهبود رابط کاربری
+            - اضافه شدن سیستم به‌روزرسانی خودکار
+            
+            ### دانلود:
+            فایل اجرایی ویندوز در فایل ZIP بالا قرار دارد.
+            
+            ### نصب:
+            1. فایل ZIP را دانلود کنید
+            2. محتویات را در پوشه‌ای مناسب استخراج کنید
+            3. فایل `matchify_desktop.exe` را اجرا کنید
+            
+            ### به‌روزرسانی خودکار:
+            این نسخه از سیستم به‌روزرسانی خودکار پشتیبانی می‌کند.
+            کاربران می‌توانند به‌روزرسانی‌ها را مستقیماً از داخل برنامه دریافت کنند.
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

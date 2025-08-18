@@ -1,196 +1,207 @@
 # Auto-Update System Setup Guide
 
-This guide explains how to set up and use the auto-update system for your Matchify Desktop application.
+## Overview
+This guide explains how to set up and use the auto-update system for Matchify Desktop. The system allows users to update the application directly from within the app.
 
-## 🚀 Features
+## Features
+- ✅ Automatic update checking
+- ✅ In-app update download and installation
+- ✅ Progress tracking
+- ✅ Release notes display
+- ✅ Version comparison
+- ✅ Windows-only builds
 
-- **Automatic Update Detection**: Checks GitHub releases for new versions
-- **In-App Updates**: Users can download and install updates directly from the app
-- **Cross-Platform Support**: Works on Windows, macOS, and Linux
-- **Progress Tracking**: Shows download and installation progress
-- **Error Handling**: Graceful fallbacks and user-friendly error messages
+## Setup Instructions
 
-## 📋 Prerequisites
+### 1. Configure Repository Information
 
-1. **GitHub Repository**: Your project must be on GitHub
-2. **Flutter Desktop Support**: Ensure Flutter desktop is properly configured
-3. **Dependencies**: The required packages are already added to `pubspec.yaml`
-
-## 🔧 Setup Steps
-
-### 1. Update GitHub Repository Information
-
-Edit `lib/core/services/auto_update_service.dart` and update these lines:
+Edit `lib/core/services/auto_update_service.dart` and replace the placeholder URLs:
 
 ```dart
-static const String _githubRepo = 'your-username/matchify-desktop'; // Replace with your actual repo
+// Replace with your actual GitHub repository information
+static const String _updateCheckUrl = 'https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/releases/latest';
+static const String _githubRepoUrl = 'https://github.com/YOUR_USERNAME/YOUR_REPO';
 ```
 
-### 2. Configure Version Management
+**Example:**
+```dart
+static const String _updateCheckUrl = 'https://api.github.com/repos/johndoe/matchify-desktop/releases/latest';
+static const String _githubRepoUrl = 'https://github.com/johndoe/matchify-desktop';
+```
 
-Update your `pubspec.yaml` version when releasing:
+### 2. Update Version in pubspec.yaml
+
+Before each release, update the version in `pubspec.yaml`:
 
 ```yaml
-version: 1.0.1+1 # Increment this for each release
+version: 1.0.1+2  # Increment this for each release
 ```
 
-### 3. GitHub Actions Workflow
+### 3. Create a Release
 
-The `.github/workflows/release.yml` file is already configured. It will:
+To create a new release:
 
-- Build for all platforms when you create a release tag
-- Upload platform-specific installers
-- Create GitHub releases automatically
+1. **Commit and push your changes:**
+   ```bash
+   git add .
+   git commit -m "New features and improvements"
+   git push origin main
+   ```
 
-## 🏷️ Creating a New Release
+2. **Create and push a tag:**
+   ```bash
+   git tag v1.0.1
+   git push origin v1.0.1
+   ```
 
-### Method 1: GitHub Web Interface
+3. **GitHub Actions will automatically:**
+   - Build the Windows executable
+   - Create a release archive
+   - Publish the release on GitHub
 
-1. Go to your GitHub repository
-2. Click "Releases" → "Create a new release"
-3. Create a new tag (e.g., `v1.0.1`)
-4. Write release notes
-5. Publish the release
+### 4. Release Process
 
-### Method 2: Git Commands
+The GitHub Actions workflow (`/.github/workflows/release.yml`) will:
 
-```bash
-# Create and push a new tag
-git tag v1.0.1
-git push origin v1.0.1
+1. **Trigger** when you push a tag starting with `v`
+2. **Build** the Windows executable using Flutter
+3. **Package** the app into a ZIP file
+4. **Create** a GitHub release with the executable
+5. **Make** the update available to users
 
-# The GitHub Action will automatically:
-# 1. Build the app for all platforms
-# 2. Create installers
-# 3. Upload to the release
-```
+## How It Works
 
-## 📱 How Users Get Updates
+### Update Check Flow:
+1. User clicks "Check for Updates" button
+2. App queries GitHub API for latest release
+3. Compares current version with latest version
+4. Shows update information if available
 
-### 1. **Automatic Check**
+### Update Process:
+1. User clicks "Download and Install"
+2. App downloads the new executable
+3. Shows download progress
+4. Launches the installer
+5. User completes installation
 
-- The app checks for updates when launched
-- Users see a notification if updates are available
+### Version Comparison:
+- Uses semantic versioning (e.g., 1.0.1, 1.1.0, 2.0.0)
+- Automatically determines if update is needed
+- Supports major, minor, and patch versions
 
-### 2. **Manual Check**
+## User Experience
 
-- Users can go to the "به‌روزرسانی" tab
-- Click "بررسی مجدد" to check for updates
+### Update Checker Widget:
+- **Location**: App bar (system update icon)
+- **Features**: 
+  - Current version display
+  - Update availability check
+  - Download progress
+  - Release notes
+  - Direct GitHub access
 
-### 3. **Installation Process**
+### Update States:
+- **Checking**: "در حال بررسی به‌روزرسانی..."
+- **Downloading**: "در حال دانلود به‌روزرسانی..."
+- **Installing**: "در حال نصب به‌روزرسانی..."
+- **Up to Date**: "نسخه شما به‌روز است"
+- **Update Available**: Shows version info and download button
 
-- Click "دانلود و نصب به‌روزرسانی"
-- The app downloads the appropriate installer
-- Shows progress with a progress bar
-- Launches the installer automatically
+## Configuration Options
 
-## 🛠️ Technical Implementation
-
-### Core Components
-
-1. **`AutoUpdateService`**: Handles GitHub API calls and file operations
-2. **`AutoUpdateProvider`**: Manages state using Riverpod
-3. **`AutoUpdateWidget`**: UI component for the update tab
-4. **GitHub Actions**: Automated build and release pipeline
-
-### Update Flow
-
-```
-User Opens App → Check for Updates → GitHub API → Compare Versions
-                                                      ↓
-                                              Update Available?
-                                                      ↓
-                                              Yes → Show Update UI
-                                                      ↓
-                                              User Clicks Install
-                                                      ↓
-                                              Download Installer
-                                                      ↓
-                                              Launch Installer
-                                                      ↓
-                                              App Restarts
-```
-
-## 🔒 Security Considerations
-
-- **HTTPS Only**: All downloads use HTTPS from GitHub
-- **Signature Verification**: Consider adding code signing for production
-- **User Consent**: Users must explicitly choose to install updates
-- **Rollback Support**: Users can reinstall previous versions
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Update Not Detected**
-
-   - Check GitHub repository name in `AutoUpdateService`
-   - Verify release tag format (should start with 'v')
-   - Ensure GitHub Actions workflow completed successfully
-
-2. **Download Fails**
-
-   - Check internet connection
-   - Verify GitHub release assets are accessible
-   - Check file permissions on target directory
-
-3. **Installation Fails**
-   - Ensure user has admin privileges (Windows/Linux)
-   - Check antivirus software blocking installation
-   - Verify installer file integrity
-
-### Debug Information
-
-Enable debug logging by checking console output:
+### Mandatory Updates:
+You can make updates mandatory by modifying the `UpdateInfo` creation:
 
 ```dart
-// In AutoUpdateService, these print statements show debug info:
-print('Debug: Copied font file: $fontFile');
-print('Debug: Error checking for updates: $e');
+return UpdateInfo(
+  // ... other fields
+  isMandatory: true, // Force users to update
+);
 ```
 
-## 📈 Best Practices
+### Update Check Frequency:
+Add automatic update checking by calling the service periodically:
 
-### For Developers
+```dart
+// Check for updates every 24 hours
+Timer.periodic(const Duration(hours: 24), (_) {
+  ref.read(autoUpdateProvider.notifier).checkForUpdates();
+});
+```
 
-1. **Version Naming**: Use semantic versioning (e.g., v1.0.1)
-2. **Release Notes**: Write clear, user-friendly release notes
-3. **Testing**: Test updates on all target platforms
-4. **Rollback Plan**: Keep previous versions available
+## Troubleshooting
 
-### For Users
+### Common Issues:
 
-1. **Backup Data**: Backup important data before updating
-2. **Close App**: Ensure the app is closed before installing updates
-3. **Admin Rights**: Some platforms require admin privileges
-4. **Stable Connection**: Ensure stable internet during download
+1. **Update not detected:**
+   - Check repository URL configuration
+   - Verify GitHub release exists
+   - Check version format in pubspec.yaml
 
-## 🔄 Update Frequency
+2. **Download fails:**
+   - Check internet connection
+   - Verify GitHub release is public
+   - Check file size limits
 
-- **Critical Updates**: Release immediately for security/bug fixes
-- **Feature Updates**: Monthly or quarterly releases
-- **User Control**: Users can choose when to install updates
-- **Automatic Checks**: App checks weekly for updates
+3. **Installation fails:**
+   - Ensure Windows compatibility
+   - Check file permissions
+   - Verify executable integrity
 
-## 📞 Support
+### Debug Information:
+The service logs debug information to console:
+```
+Debug: Checking for updates...
+Debug: Latest version: 1.0.1
+Debug: Current version: 1.0.0
+Debug: Update available
+Debug: Downloading update...
+Debug: Update downloaded successfully
+```
 
-If you encounter issues:
+## Security Considerations
 
-1. Check the console output for error messages
+- **HTTPS Only**: All downloads use HTTPS
+- **GitHub Verification**: Updates only from your verified repository
+- **File Integrity**: GitHub provides SHA checksums for verification
+- **User Control**: Users can choose when to update
+
+## Best Practices
+
+1. **Version Management:**
+   - Use semantic versioning
+   - Increment version before each release
+   - Tag releases consistently
+
+2. **Release Notes:**
+   - Write clear, Persian release notes
+   - Include all changes and improvements
+   - Mention breaking changes
+
+3. **Testing:**
+   - Test update process thoroughly
+   - Verify installer works correctly
+   - Test rollback scenarios
+
+4. **User Communication:**
+   - Notify users of important updates
+   - Provide clear installation instructions
+   - Offer support for update issues
+
+## Support
+
+For issues with the auto-update system:
+1. Check the debug logs
 2. Verify GitHub repository configuration
-3. Ensure all dependencies are properly installed
-4. Test on a clean environment
+3. Test the GitHub Actions workflow
+4. Check user permissions and network access
 
-## 🎯 Future Enhancements
+## Future Enhancements
 
-Potential improvements for the auto-update system:
-
-- **Delta Updates**: Download only changed files
-- **Background Updates**: Install updates when app is closed
-- **Update Scheduling**: Allow users to schedule updates
-- **Multiple Channels**: Beta/stable release channels
-- **Update Notifications**: Push notifications for new releases
-
----
-
-**Note**: This auto-update system is designed for desktop applications. For mobile apps, use the respective app store update mechanisms.
+Potential improvements:
+- Delta updates (smaller downloads)
+- Background update checking
+- Automatic update installation
+- Update rollback functionality
+- Multi-platform support
+- Enterprise update servers

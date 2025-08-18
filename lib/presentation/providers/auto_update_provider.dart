@@ -3,113 +3,100 @@ import 'package:matchify_desktop/core/services/auto_update_service.dart';
 
 class AutoUpdateState {
   final bool isChecking;
-  final bool hasUpdate;
-  final UpdateInfo? updateInfo;
   final bool isDownloading;
   final double downloadProgress;
+  final UpdateInfo? availableUpdate;
   final String? error;
-  final String currentVersion;
+  final bool isInstalling;
 
   AutoUpdateState({
     this.isChecking = false,
-    this.hasUpdate = false,
-    this.updateInfo,
     this.isDownloading = false,
     this.downloadProgress = 0.0,
+    this.availableUpdate,
     this.error,
-    this.currentVersion = '',
+    this.isInstalling = false,
   });
 
   AutoUpdateState copyWith({
     bool? isChecking,
-    bool? hasUpdate,
-    UpdateInfo? updateInfo,
     bool? isDownloading,
     double? downloadProgress,
+    UpdateInfo? availableUpdate,
     String? error,
-    String? currentVersion,
+    bool? isInstalling,
   }) {
     return AutoUpdateState(
       isChecking: isChecking ?? this.isChecking,
-      hasUpdate: hasUpdate ?? this.hasUpdate,
-      updateInfo: updateInfo ?? this.updateInfo,
       isDownloading: isDownloading ?? this.isDownloading,
       downloadProgress: downloadProgress ?? this.downloadProgress,
+      availableUpdate: availableUpdate ?? this.availableUpdate,
       error: error ?? this.error,
-      currentVersion: currentVersion ?? this.currentVersion,
+      isInstalling: isInstalling ?? this.isInstalling,
     );
   }
 }
 
 class AutoUpdateNotifier extends StateNotifier<AutoUpdateState> {
-  AutoUpdateNotifier() : super(AutoUpdateState()) {
-    _initializeVersion();
-  }
-
-  Future<void> _initializeVersion() async {
-    final version = await AutoUpdateService.getCurrentVersion();
-    state = state.copyWith(currentVersion: version);
-  }
+  AutoUpdateNotifier() : super(AutoUpdateState());
 
   /// Check for available updates
   Future<void> checkForUpdates() async {
-    state = state.copyWith(isChecking: true, error: null);
-
     try {
-      final updateInfo = await AutoUpdateService.checkForUpdates();
+      state = state.copyWith(isChecking: true, error: null);
 
-      if (updateInfo != null) {
-        state = state.copyWith(
-          isChecking: false,
-          hasUpdate: updateInfo.isAvailable,
-          updateInfo: updateInfo,
-        );
-      } else {
-        state = state.copyWith(
-          isChecking: false,
-          error: 'خطا در بررسی به‌روزرسانی',
-        );
-      }
-    } catch (e) {
+      final updateInfo = await AutoUpdateService.checkForUpdates();
+      
       state = state.copyWith(
         isChecking: false,
-        error: 'خطا در بررسی به‌روزرسانی: $e',
+        availableUpdate: updateInfo,
+      );
+    } catch (e, stackTrace) {
+      print('Error in checkForUpdates: $e');
+      print('Stack trace: $stackTrace');
+
+      String errorMessage = 'خطا در بررسی به‌روزرسانی';
+
+      if (e.toString().contains('null')) {
+        errorMessage =
+            'خطا در پردازش اطلاعات به‌روزرسانی - لطفاً دوباره تلاش کنید';
+      } else if (e.toString().contains('NetworkException')) {
+        errorMessage =
+            'خطا در اتصال به اینترنت - لطفاً اتصال خود را بررسی کنید';
+      } else if (e.toString().contains('SocketException')) {
+        errorMessage = 'خطا در اتصال به سرور - لطفاً دوباره تلاش کنید';
+      } else {
+        errorMessage = 'خطا در بررسی به‌روزرسانی: $e';
+      }
+      
+      state = state.copyWith(
+        isChecking: false,
+        error: errorMessage,
       );
     }
   }
 
-  /// Download and install the update
-  Future<void> downloadAndInstallUpdate() async {
-    if (state.updateInfo == null || !state.hasUpdate) return;
-
-    state = state.copyWith(
-      isDownloading: true,
-      downloadProgress: 0.0,
-      error: null,
-    );
+  /// Download the available update
+  Future<void> downloadUpdate() async {
+    if (state.availableUpdate == null) return;
 
     try {
-      // Simulate download progress
-      for (int i = 0; i <= 100; i += 10) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        state = state.copyWith(downloadProgress: i / 100);
-      }
+      state = state.copyWith(isDownloading: true, error: null);
 
-      // Download and install the update
-      final success = await AutoUpdateService.downloadAndInstallUpdate(
-        state.updateInfo!.downloadUrl,
+      final updateFilePath = await AutoUpdateService.downloadUpdate(
+        state.availableUpdate!,
+        (progress) {
+          state = state.copyWith(downloadProgress: progress);
+        },
       );
 
-      if (success) {
-        state = state.copyWith(
-          isDownloading: false,
-          downloadProgress: 1.0,
-        );
-        // The app will restart after installation
+      if (updateFilePath != null) {
+        // Download successful, proceed to install
+        await _installUpdate(updateFilePath);
       } else {
         state = state.copyWith(
           isDownloading: false,
-          error: 'خطا در نصب به‌روزرسانی',
+          error: 'خطا در دانلود به‌روزرسانی',
         );
       }
     } catch (e) {
@@ -120,15 +107,48 @@ class AutoUpdateNotifier extends StateNotifier<AutoUpdateState> {
     }
   }
 
-  /// Clear any errors
+  /// Install the downloaded update
+  Future<void> _installUpdate(String updateFilePath) async {
+    try {
+      state = state.copyWith(isInstalling: true, error: null);
+
+      final success = await AutoUpdateService.installUpdate(updateFilePath);
+
+      if (success) {
+        // Update installation started successfully
+        // The app will be replaced by the new version
+        state = state.copyWith(isInstalling: false);
+      } else {
+        state = state.copyWith(
+          isInstalling: false,
+          error: 'خطا در نصب به‌روزرسانی',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isInstalling: false,
+        error: 'خطا در نصب به‌روزرسانی: $e',
+      );
+    }
+  }
+
+  /// Open GitHub releases page
+  Future<void> openReleasesPage() async {
+    try {
+      await AutoUpdateService.openReleasesPage();
+    } catch (e) {
+      state = state.copyWith(error: 'خطا در باز کردن صفحه انتشارات: $e');
+    }
+  }
+
+  /// Clear error
   void clearError() {
     state = state.copyWith(error: null);
   }
 
-  /// Reset the update state
+  /// Reset state
   void reset() {
     state = AutoUpdateState();
-    _initializeVersion();
   }
 }
 
