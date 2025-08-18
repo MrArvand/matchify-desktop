@@ -23,13 +23,60 @@ jobs:
         run: flutter pub get
         
       - name: Build Windows executable
-        run: flutter build windows --release
+        run: |
+          echo "Starting Flutter Windows build..."
+          flutter build windows --release
+          echo "Flutter build completed"
+          
+          # Check if build was successful
+          if (Test-Path "build\windows\runner\Release") {
+            echo "✅ Build successful - Release directory exists"
+            echo "Build contents:"
+            Get-ChildItem "build\windows\runner\Release" | Select-Object Name, Length
+          } else {
+            echo "❌ Build failed - Release directory not found"
+            echo "Available build directories:"
+            if (Test-Path "build") {
+              Get-ChildItem "build" -Recurse -Directory | Select-Object FullName
+            } else {
+              echo "No build directory found at all"
+            }
+            exit 1
+          }
+        
+      - name: List build directory contents
+        run: |
+          echo "Checking build directory structure..."
+          if (Test-Path "build\windows\runner\Release") {
+            echo "Release directory exists"
+            Get-ChildItem "build\windows\runner\Release" -Recurse | Select-Object Name, Length, FullName
+          } else {
+            echo "Release directory does not exist"
+            echo "Available directories:"
+            Get-ChildItem "build" -Recurse -Directory | Select-Object FullName
+          }
         
       - name: Create release archive
         run: |
           $version = "${{ github.ref_name }}"
           $version = $version -replace "v", ""
-          Compress-Archive -Path "build\windows\runner\Release\*" -DestinationPath "matchify-desktop-windows-$version.zip"
+          
+          # Check if build directory exists
+          if (Test-Path "build\windows\runner\Release") {
+            echo "Creating archive for version: $version"
+            Compress-Archive -Path "build\windows\runner\Release\*" -DestinationPath "matchify-desktop-windows-$version.zip" -Force
+            echo "Archive created successfully"
+            
+            # List the created archive
+            if (Test-Path "matchify-desktop-windows-$version.zip") {
+              $archiveSize = (Get-Item "matchify-desktop-windows-$version.zip").Length
+              echo "Archive size: $([math]::Round($archiveSize / 1MB, 2)) MB"
+            }
+          } else {
+            echo "ERROR: Build directory not found!"
+            echo "Build failed or path is incorrect"
+            exit 1
+          }
           
       - name: Create Release
         uses: softprops/action-gh-release@v1
