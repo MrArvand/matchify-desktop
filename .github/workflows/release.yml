@@ -23,13 +23,56 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Check Flutter Project
+        run: |
+          echo "Checking Flutter project configuration..."
+          flutter config
+          echo "Available platforms:"
+          flutter devices
+          echo "Project structure:"
+          dir
+          echo "Windows folder exists:"
+          if (Test-Path "windows") { echo "Yes" } else { echo "No" }
+
       - name: Build Windows
-        run: flutter build windows --release
+        run: |
+          echo "Building Windows application..."
+          flutter build windows --release --verbose
+          echo "Build completed"
+
+      - name: Verify Build Output
+        run: |
+          echo "Verifying Flutter build output..."
+          if (Test-Path "build\windows\runner\Release") {
+            echo "Build output directory exists"
+            dir build\windows\runner\Release
+          } else {
+            echo "Build output directory does not exist"
+            echo "Checking build directory structure..."
+            dir build
+            if (Test-Path "build\windows") {
+              dir build\windows
+              if (Test-Path "build\windows\runner") {
+                dir build\windows\runner
+              }
+            }
+            exit 1
+          }
+
+      - name: List Build Output
+        run: |
+          echo "Checking build output structure..."
+          dir build\windows\runner\Release
+          echo "Build output listing completed"
 
       - name: Create Windows Installer
         run: |
-          cd build/windows/runner/Release
+          echo "Creating Windows installer..."
+          cd build\windows\runner\Release
+          dir
+          echo "Creating 7z archive..."
           7z a -t7z matchify-desktop-windows.7z *
+          echo "Installer created successfully"
 
       - name: Upload Windows Release
         uses: actions/upload-release-asset@v1
