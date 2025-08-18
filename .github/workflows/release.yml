@@ -16,7 +16,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'  # Matches your pubspec.yaml SDK constraint
+          flutter-version: '3.32.8'  # Matches your local Flutter version exactly
           channel: 'stable'
           
       - name: Get dependencies
