@@ -64,17 +64,46 @@ jobs:
           # Check if build directory exists
           if (Test-Path "build\windows\x64\runner\Release") {
             echo "Creating archive for version: $version"
-            Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "matchify-desktop-windows-$version.zip" -Force
-            echo "Archive created successfully"
+            $archiveName = "matchify-desktop-windows-$version.zip"
+            Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath $archiveName -Force
+            echo "Archive created successfully: $archiveName"
             
             # List the created archive
-            if (Test-Path "matchify-desktop-windows-$version.zip") {
-              $archiveSize = (Get-Item "matchify-desktop-windows-$version.zip").Length
+            if (Test-Path $archiveName) {
+              $archiveSize = (Get-Item $archiveName).Length
               echo "Archive size: $([math]::Round($archiveSize / 1MB, 2)) MB"
+              
+              # List files in the archive to verify contents
+              echo "Archive contents:"
+              Expand-Archive -Path $archiveName -DestinationPath "temp_extract" -Force
+              Get-ChildItem "temp_extract" -Recurse | Select-Object Name, Length
+              Remove-Item "temp_extract" -Recurse -Force
             }
           } else {
             echo "ERROR: Build directory not found!"
             echo "Build failed or path is incorrect"
+            exit 1
+          }
+          
+      - name: Verify archive file
+        run: |
+          $version = "${{ github.ref_name }}"
+          $version = $version -replace "v", ""
+          $archiveName = "matchify-desktop-windows-$version.zip"
+          
+          echo "Verifying archive file: $archiveName"
+          if (Test-Path $archiveName) {
+            $archiveSize = (Get-Item $archiveName).Length
+            echo "✅ Archive file exists: $archiveName"
+            echo "📁 Archive size: $([math]::Round($archiveSize / 1MB, 2)) MB"
+            
+            # List current directory to see all files
+            echo "📂 Files in current directory:"
+            Get-ChildItem | Select-Object Name, Length, LastWriteTime
+          } else {
+            echo "❌ Archive file not found: $archiveName"
+            echo "📂 Files in current directory:"
+            Get-ChildItem | Select-Object Name, Length, LastWriteTime
             exit 1
           }
           
@@ -105,5 +134,6 @@ jobs:
             کاربران می‌توانند به‌روزرسانی‌ها را مستقیماً از داخل برنامه دریافت کنند.
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
