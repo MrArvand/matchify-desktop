@@ -41,83 +41,8 @@ jobs:
           asset_name: matchify-desktop-windows.7z
           asset_content_type: application/x-7z-compressed
 
-  build-macos:
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: "stable"
-
-      - name: Flutter Doctor
-        run: flutter doctor -v
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build macOS
-        run: flutter build macos --release
-
-      - name: Create macOS DMG
-        run: |
-          cd build/macos/Build/Products/Release
-          hdiutil create -volname "Matchify Desktop" -srcfolder "matchify_desktop.app" -ov -format UDZO matchify-desktop-macos.dmg
-
-      - name: Upload macOS Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/macos/Build/Products/Release/matchify-desktop-macos.dmg
-          asset_name: matchify-desktop-macos.dmg
-          asset_content_type: application/x-apple-diskimage
-
-  build-linux:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: "stable"
-
-      - name: Flutter Doctor
-        run: flutter doctor -v
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build Linux
-        run: flutter build linux --release
-
-      - name: Create Linux DEB
-        run: |
-          cd build/linux/x64/release/bundle
-          tar -czf matchify-desktop-linux.tar.gz *
-
-      - name: Upload Linux Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/linux/x64/release/bundle/matchify-desktop-linux.tar.gz
-          asset_name: matchify-desktop-linux.tar.gz
-          asset_content_type: application/gzip
-
   create-release:
-    needs: [build-windows, build-macos, build-linux]
+    needs: [build-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -140,14 +65,12 @@ jobs:
             ## Downloads
 
             - **Windows**: Download the .7z file and extract to run
-            - **macOS**: Download the .dmg file and drag to Applications
-            - **Linux**: Download the .tar.gz file and extract to run
 
             ## Installation
 
-            1. Download the appropriate file for your operating system
-            2. Extract/install the application
-            3. Run the application
+            1. Download the Windows .7z file
+            2. Extract the contents to a folder
+            3. Run the matchify_desktop.exe file
             4. Check for updates from within the app!
           draft: false
           prerelease: false
