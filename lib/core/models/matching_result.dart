@@ -6,7 +6,7 @@ class ExactMatch {
 
   ExactMatch({required this.payment, required this.receivable});
 
-  double get amount => payment.amount;
+  int get amount => payment.amount;
 
   Map<String, dynamic> toMap() {
     return {
@@ -25,24 +25,30 @@ class ExactMatch {
 class CombinationOption {
   final List<ReceivableRecord> receivables;
   final int selectedIndex; // -1 means not selected
+  final bool isTerminalBased; // Whether this is a terminal-based combination
+  final String? terminalCode; // Terminal code if this is terminal-based
 
   CombinationOption({
     required this.receivables,
     this.selectedIndex = -1,
+    this.isTerminalBased = false,
+    this.terminalCode,
   });
 
-  double get totalAmount {
-    return receivables.fold(0.0, (sum, receivable) => sum + receivable.amount);
+  int get totalAmount {
+    return receivables.fold(0, (sum, receivable) => sum + receivable.amount);
   }
 
   List<int> get receivableRows => receivables.map((r) => r.rowNumber).toList();
-  List<double> get receivableAmounts =>
+  List<int> get receivableAmounts =>
       receivables.map((r) => r.amount).toList();
 
   Map<String, dynamic> toMap() {
     return {
       'rows': receivableRows,
       'amounts': receivableAmounts,
+      'isTerminalBased': isTerminalBased,
+      'terminalCode': terminalCode,
     };
   }
 
@@ -56,18 +62,20 @@ class CombinationMatch {
   final PaymentRecord payment;
   final List<CombinationOption> options;
   final int selectedOptionIndex; // -1 means not selected
+  final bool isTerminalBased; // Whether this is a terminal-based combination
 
   CombinationMatch({
     required this.payment,
     required this.options,
     this.selectedOptionIndex = -1,
+    this.isTerminalBased = false,
   });
 
-  double get totalAmount {
+  int get totalAmount {
     if (selectedOptionIndex >= 0 && selectedOptionIndex < options.length) {
       return options[selectedOptionIndex].totalAmount;
     }
-    return 0.0;
+    return 0;
   }
 
   List<ReceivableRecord> get selectedReceivables {
@@ -83,6 +91,7 @@ class CombinationMatch {
       'amount': payment.amount,
       'combinations': options.map((option) => option.toMap()).toList(),
       'selected_combination': selectedOptionIndex,
+      'isTerminalBased': isTerminalBased,
     };
   }
 

@@ -17,7 +17,7 @@ class MatchingState {
   final String? receivablesFilePath;
   final int paymentsAmountColumn;
   final int receivablesAmountColumn;
-  final int? receivablesRefCodeColumn; // Optional ref code column for bank file
+  final int? receivablesTerminalCodeColumn;
   final int currentStep; // 0: Upload, 1: Results, 2: Selection, 3: Export
 
   MatchingState({
@@ -32,7 +32,7 @@ class MatchingState {
     this.receivablesFilePath,
     this.paymentsAmountColumn = 0,
     this.receivablesAmountColumn = 0,
-    this.receivablesRefCodeColumn,
+    this.receivablesTerminalCodeColumn,
     this.currentStep = 0,
   });
 
@@ -48,7 +48,7 @@ class MatchingState {
     String? receivablesFilePath,
     int? paymentsAmountColumn,
     int? receivablesAmountColumn,
-    int? receivablesRefCodeColumn,
+    int? receivablesTerminalCodeColumn,
     int? currentStep,
   }) {
     return MatchingState(
@@ -65,8 +65,8 @@ class MatchingState {
       paymentsAmountColumn: paymentsAmountColumn ?? this.paymentsAmountColumn,
       receivablesAmountColumn:
           receivablesAmountColumn ?? this.receivablesAmountColumn,
-      receivablesRefCodeColumn:
-          receivablesRefCodeColumn ?? this.receivablesRefCodeColumn,
+      receivablesTerminalCodeColumn:
+          receivablesTerminalCodeColumn ?? this.receivablesTerminalCodeColumn,
       currentStep: currentStep ?? this.currentStep,
     );
   }
@@ -95,8 +95,10 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
     }
   }
 
-  void setReceivablesRefCodeColumn(int? columnIndex) {
-    state = state.copyWith(receivablesRefCodeColumn: columnIndex);
+  // Ref code column removed
+
+  void setReceivablesTerminalCodeColumn(int? columnIndex) {
+    state = state.copyWith(receivablesTerminalCodeColumn: columnIndex);
   }
 
   Future<void> loadPaymentsFile() async {
@@ -142,7 +144,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
         onProgress: (progress) {
           state = state.copyWith(progress: progress);
         },
-        refCodeColumnIndex: state.receivablesRefCodeColumn,
+        terminalCodeColumnIndex: state.receivablesTerminalCodeColumn,
       );
 
       final receivables =
@@ -176,7 +178,6 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
         onProgress: (progress) {
           state = state.copyWith(progress: progress);
         },
-        useRefCodeMatching: state.receivablesRefCodeColumn != null,
       );
 
       state = state.copyWith(
@@ -207,6 +208,19 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
         .map((receivable) => receivable.rowNumber)
         .toSet();
 
+    // Check if this is a terminal-based combination
+    if (selectedOption.isTerminalBased && selectedOption.terminalCode != null) {
+      // Remove all rows from this terminal from other combinations
+      final updatedResult = MatchingService.removeTerminalRows(
+        state.result!,
+        selectedOption.terminalCode!,
+      );
+
+      // Update the result
+      state = state.copyWith(result: updatedResult);
+      return;
+    }
+
     // Update combination matches with conflict prevention
     final updatedCombinationMatches =
         state.result!.combinationMatches.map((match) {
@@ -216,6 +230,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
           payment: match.payment,
           options: match.options,
           selectedOptionIndex: optionIndex,
+          isTerminalBased: match.isTerminalBased,
         );
       } else {
         // Check for conflicts with other matches
@@ -268,6 +283,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
             payment: match.payment,
             options: filteredOptions,
             selectedOptionIndex: newSelectedIndex,
+            isTerminalBased: match.isTerminalBased,
           );
         }
 
@@ -322,8 +338,9 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
   }
 
   void resetSelections() {
-    if (state.result == null || state.originalCombinationMatches == null)
+    if (state.result == null || state.originalCombinationMatches == null) {
       return;
+    }
 
     // Restore original combination matches with no selections
     final restoredCombinationMatches =

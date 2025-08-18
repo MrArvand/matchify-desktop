@@ -20,6 +20,7 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
   List<String> receivablesHeaders = [];
   bool isLoadingHeaders = false;
   bool isShowingLoadingDialog = false;
+  int? receivablesTerminalCodeColumn;
 
   @override
   Widget build(BuildContext context) {
@@ -102,10 +103,9 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                       await notifier.loadReceivablesFile();
                     }
                   },
-                  refCodeColumn: state.receivablesRefCodeColumn,
-                  onRefCodeColumnChanged: (columnIndex) async {
-                    notifier.setReceivablesRefCodeColumn(columnIndex);
-                    // Automatically load data when column is selected
+                  terminalCodeColumn: state.receivablesTerminalCodeColumn,
+                  onTerminalCodeColumnChanged: (columnIndex) async {
+                    notifier.setReceivablesTerminalCodeColumn(columnIndex);
                     if (state.receivablesFilePath != null) {
                       await notifier.loadReceivablesFile();
                     }
@@ -125,9 +125,7 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
           if (isShowingLoadingDialog)
             LoadingDialog(
               title: 'در حال پردازش',
-              message: state.receivablesRefCodeColumn != null
-                  ? 'در حال تطبیق بر اساس کد مرجع...'
-                  : 'در حال یافتن ترکیب‌های ممکن...',
+              message: 'در حال یافتن ترکیب‌های ممکن...',
               progress: state.progress,
             ),
           const SizedBox(height: 24),
@@ -147,8 +145,8 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
     required Function(String) onFileSelected,
     required int amountColumn,
     required Function(int?) onColumnChanged,
-    int? refCodeColumn,
-    Function(int?)? onRefCodeColumnChanged,
+    int? terminalCodeColumn,
+    Function(int?)? onTerminalCodeColumnChanged,
     required bool isLoading,
     required double progress,
   }) {
@@ -247,7 +245,7 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
               const SizedBox(height: 16),
             ],
 
-            // Column Selection
+            // Column Selection (Amount)
             if (headers.isNotEmpty) ...[
               Text(
                 'ستون مبلغ را انتخاب کنید:',
@@ -277,20 +275,19 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                 onChanged: onColumnChanged,
               ),
               const SizedBox(height: 16),
-
-              // Ref Code Column Selection (only for bank file)
-              if (title.contains(AppConstants.bankFileTitle) &&
-                  onRefCodeColumnChanged != null) ...[
+              // Terminal Code Selection (optional)
+              if (onTerminalCodeColumnChanged != null) ...[
                 Text(
-                  'ستون کد مرجع (اختیاری):',
+                  'ستون کد ترمینال (اختیاری):',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: refCodeColumn != null && refCodeColumn < headers.length
-                      ? refCodeColumn
+                  value: terminalCodeColumn != null &&
+                          terminalCodeColumn < headers.length
+                      ? terminalCodeColumn
                       : null,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
@@ -300,23 +297,17 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                       horizontal: 16,
                       vertical: 16,
                     ),
-                    hintText: 'انتخاب نکنید',
                   ),
-                  items: [
-                    const DropdownMenuItem<int>(
-                      value: null,
-                      child: Text('انتخاب نکنید'),
-                    ),
-                    ...headers.asMap().entries.map((entry) {
-                      return DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(
-                            '${PersianNumberFormatter.formatNumber(entry.key + 1)}: ${entry.value}'),
-                      );
-                    }).toList(),
-                  ],
-                  onChanged: onRefCodeColumnChanged,
+                  items: headers.asMap().entries.map((entry) {
+                    return DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(
+                          '${PersianNumberFormatter.formatNumber(entry.key + 1)}: ${entry.value}'),
+                    );
+                  }).toList(),
+                  onChanged: onTerminalCodeColumnChanged,
                 ),
+                const SizedBox(height: 16),
               ],
             ],
           ],

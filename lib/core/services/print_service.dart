@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:matchify_desktop/core/models/matching_result.dart';
 import 'package:matchify_desktop/core/utils/persian_number_formatter.dart';
+import 'package:matchify_desktop/core/constants/app_constants.dart';
 
 class PrintService {
   static Future<void> printReport(MatchingResult result) async {
@@ -13,6 +14,10 @@ class PrintService {
       final htmlContent = _generateHtmlReport(result);
       final tempDir = Directory.systemTemp;
       final tempFile = File('${tempDir.path}/matching_report.html');
+      
+      // Copy Vazirmatn font files to temp directory
+      await _copyFontFiles(tempDir.path);
+      
       await tempFile.writeAsString(htmlContent);
 
       print('Debug: Temp file created at: ${tempFile.path}');
@@ -64,6 +69,35 @@ class PrintService {
     }
   }
 
+  /// Copy Vazirmatn font files to the specified directory
+  static Future<void> _copyFontFiles(String targetDir) async {
+    try {
+      // List of font files to copy
+      final fontFiles = [
+        'Vazirmatn-Regular.ttf',
+        'Vazirmatn-Bold.ttf',
+        'Vazirmatn-Medium.ttf',
+      ];
+
+      for (final fontFile in fontFiles) {
+        final sourcePath = 'assets/fonts/$fontFile';
+        final targetPath = '$targetDir/$fontFile';
+
+        // Check if source file exists
+        final sourceFile = File(sourcePath);
+        if (await sourceFile.exists()) {
+          await sourceFile.copy(targetPath);
+          print('Debug: Copied font file: $fontFile');
+        } else {
+          print('Debug: Font file not found: $sourcePath');
+        }
+      }
+    } catch (e) {
+      print('Debug: Error copying font files: $e');
+      // Continue without fonts if there's an error
+    }
+  }
+
   static String _generateReportText(MatchingResult result) {
     final buffer = StringBuffer();
 
@@ -79,7 +113,7 @@ class PrintService {
     buffer.writeln('-' * 30);
     for (final match in result.exactMatches) {
       buffer.writeln(
-          'ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)} -> ردیف دریافت ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}');
+          'ردیف ${AppConstants.varangarShortName} ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)} -> ردیف ${AppConstants.bankShortName} ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}');
       buffer.writeln(
           'مبلغ: ${PersianNumberFormatter.formatCurrency(match.amount)}');
       buffer.writeln();
@@ -93,13 +127,13 @@ class PrintService {
         if (match.selectedOptionIndex >= 0) {
           final selectedOption = match.options[match.selectedOptionIndex];
           buffer.writeln(
-              'ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}:');
+              'ردیف ${AppConstants.varangarShortName} ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}:');
           buffer.writeln(
-              'مبلغ پرداخت: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
+              'مبلغ ${AppConstants.varangarShortName}: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
           buffer.writeln('ترکیب انتخاب شده:');
           for (final receivable in selectedOption.receivables) {
             buffer.writeln(
-                '  - ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}');
+                '  - ردیف ${AppConstants.bankShortName} ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}');
           }
           buffer.writeln(
               'مجموع: ${PersianNumberFormatter.formatCurrency(selectedOption.totalAmount)}');
@@ -110,7 +144,7 @@ class PrintService {
 
     // Unmatched Payments
     if (result.unmatchedPayments.isNotEmpty) {
-      buffer.writeln('پرداخت‌های نامطابق:');
+      buffer.writeln('${AppConstants.varangarShortName} نامطابق:');
       buffer.writeln('-' * 30);
       for (final payment in result.unmatchedPayments) {
         buffer.writeln(
@@ -121,7 +155,7 @@ class PrintService {
 
     // Unmatched Receivables
     if (result.unmatchedReceivables.isNotEmpty) {
-      buffer.writeln('دریافت‌های نامطابق:');
+      buffer.writeln('${AppConstants.bankShortName} نامطابق:');
       buffer.writeln('-' * 30);
       for (final receivable in result.unmatchedReceivables) {
         buffer.writeln(
@@ -138,9 +172,9 @@ class PrintService {
     buffer.writeln(
         'تطبیق‌های ترکیبی: ${PersianNumberFormatter.formatNumber(result.totalCombinationMatches)}');
     buffer.writeln(
-        'پرداخت‌های نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)}');
+        '${AppConstants.varangarShortName} نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)}');
     buffer.writeln(
-        'دریافت‌های نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)}');
+        '${AppConstants.bankShortName} نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)}');
     buffer.writeln(
         'مجموع مبالغ تطابق‌شده: ${PersianNumberFormatter.formatCurrency(result.totalMatchedAmount)}');
 
@@ -156,59 +190,275 @@ class PrintService {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>گزارش تطبیق مبالغ</title>
     <style>
+        /* Font definitions with local file references */
+        @font-face {
+            font-family: 'Vazirmatn';
+            src: url('./Vazirmatn-Regular.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+        
+        @font-face {
+            font-family: 'Vazirmatn';
+            src: url('./Vazirmatn-Bold.ttf') format('truetype');
+            font-weight: bold;
+            font-style: normal;
+            font-display: swap;
+        }
+        
+        @font-face {
+            font-family: 'Vazirmatn';
+            src: url('./Vazirmatn-Medium.ttf') format('truetype');
+            font-weight: 500;
+            font-style: normal;
+            font-display: swap;
+        }
+        
+        /* Primary font stack optimized for Persian text */
         body {
-            font-family: 'Vazirmatn', 'Tahoma', 'Arial', sans-serif;
-            margin: 20px;
+            font-family: 'Vazirmatn', 'Segoe UI', 'Tahoma', 'Arial Unicode MS', 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
             background-color: #f8f9fa;
             direction: rtl;
+            font-size: 14px;
+            line-height: 1.6;
         }
+        
+        /* Ensure Persian text renders properly */
+        h1, h2, h3, h4, h5, h6, p, span, div, th, td {
+            font-family: inherit;
+        }
+        
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             background-color: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
+        
         .header {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            padding: 30px;
             text-align: center;
-            border-bottom: 2px solid #6366f1;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
         }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .header-info {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .header-item {
+            text-align: center;
+            margin: 10px;
+        }
+        
+        .header-item strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
         .section {
-            margin-bottom: 30px;
+            margin-bottom: 40px;
         }
+        
         .section-title {
             color: #6366f1;
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 8px;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #6366f1;
+            display: flex;
+            align-items: center;
         }
-        .match-item {
-            background-color: #f8f9fa;
-            padding: 12px;
-            margin-bottom: 8px;
-            border-radius: 8px;
-            border-right: 4px solid #6366f1;
-        }
-        .summary {
+        
+        .section-title::before {
+            content: '';
+            width: 8px;
+            height: 20px;
             background-color: #6366f1;
+            margin-left: 12px;
+            border-radius: 4px;
+        }
+        
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .excel-table th {
+            background-color: #f8f9fa;
+            color: #374151;
+            font-weight: 600;
+            padding: 16px 12px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+        
+        .excel-table td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+            vertical-align: middle;
+        }
+        
+        .excel-table tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        
+        .excel-table tr:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .match-row {
+            background-color: #ecfdf5;
+            border-left: 4px solid #10b981;
+        }
+        
+        .combination-row {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .unmatched-row {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .amount-cell {
+            font-weight: 600;
+            color: #059669;
+        }
+        
+        .row-number {
+            background-color: #f3f4f6;
+            font-weight: 600;
+            color: #374151;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-exact {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-combination {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-unmatched {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
             color: white;
             padding: 20px;
             border-radius: 12px;
-            margin-top: 30px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
         }
-        .summary-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
+        
+        .summary-card h3 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            font-weight: 600;
         }
+        
+        .summary-number {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .summary-amount {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+        
         @media print {
-            body { background-color: white; }
-            .container { box-shadow: none; }
+            body { 
+                background-color: white; 
+                margin: 0;
+                padding: 10px;
+            }
+            .container { 
+                box-shadow: none; 
+                border: 1px solid #e5e7eb;
+            }
+            .excel-table {
+                box-shadow: none;
+                border: 1px solid #000;
+            }
+            .excel-table th,
+            .excel-table td {
+                border: 1px solid #000;
+            }
+        }
+        
+        @media screen and (max-width: 768px) {
+            .header-info {
+                flex-direction: column;
+            }
+            .excel-table {
+                font-size: 12px;
+            }
+            .excel-table th,
+            .excel-table td {
+                padding: 8px 6px;
+            }
         }
     </style>
 </head>
@@ -216,82 +466,180 @@ class PrintService {
     <div class="container">
         <div class="header">
             <h1>گزارش تطبیق مبالغ</h1>
-            <p>تاریخ: ${DateTime.now().toLocal()}</p>
-            <p>زمان پردازش: ${PersianNumberFormatter.formatNumber(result.processingTime.inMilliseconds)} میلی‌ثانیه</p>
-        </div>
-
-        <div class="section">
-            <div class="section-title">تطبیق‌های دقیق</div>
-            ${result.exactMatches.map((match) => '''
-                <div class="match-item">
-                    <strong>ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)} → ردیف دریافت ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}</strong><br>
-                    مبلغ: ${PersianNumberFormatter.formatCurrency(match.amount)}
+            <p>سیستم تطبیق خودکار فاکتورهای ورانگر و تراکنش‌های بانک</p>
+            <div class="header-info">
+                <div class="header-item">
+                    <strong>تاریخ گزارش</strong>
+                    <span>${DateTime.now().toLocal().toString().split(' ')[0]}</span>
                 </div>
-            ''').join('')}
+                <div class="header-item">
+                    <strong>زمان پردازش</strong>
+                    <span>${PersianNumberFormatter.formatNumber(result.processingTime.inMilliseconds)} میلی‌ثانیه</span>
+                </div>
+                <div class="header-item">
+                    <strong>تعداد کل تطبیق‌ها</strong>
+                    <span>${PersianNumberFormatter.formatNumber(result.totalExactMatches + result.combinationMatches.where((m) => m.selectedOptionIndex >= 0).length)}</span>
+                </div>
+            </div>
         </div>
 
-        ${result.combinationMatches.isNotEmpty ? '''
-        <div class="section">
-            <div class="section-title">تطبیق‌های ترکیبی</div>
-            ${result.combinationMatches.where((match) => match.selectedOptionIndex >= 0).map((match) {
+        <div class="content">
+            <!-- Summary Section - Moved to top -->
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h3>تطبیق‌های دقیق</h3>
+                    <div class="summary-number">${PersianNumberFormatter.formatNumber(result.totalExactMatches)}</div>
+                    <div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.exactMatches.fold(0.0, (sum, match) => sum + match.amount))}</div>
+                </div>
+                
+                <div class="summary-card">
+                    <h3>تطبیق‌های ترکیبی</h3>
+                    <div class="summary-number">${PersianNumberFormatter.formatNumber(result.combinationMatches.where((match) => match.selectedOptionIndex >= 0).length)}</div>
+                    <div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.combinationMatches.where((match) => match.selectedOptionIndex >= 0).fold(0.0, (sum, match) => sum + match.options[match.selectedOptionIndex].totalAmount))}</div>
+                </div>
+                
+                <div class="summary-card">
+                    <h3>ورانگر نامطابق</h3>
+                    <div class="summary-number">${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)}</div>
+                    <div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.unmatchedPayments.fold(0.0, (sum, payment) => sum + payment.amount))}</div>
+                </div>
+                
+                <div class="summary-card">
+                    <h3>بانک نامطابق</h3>
+                    <div class="summary-number">${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)}</div>
+                    <div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.unmatchedReceivables.fold(0.0, (sum, receivable) => sum + receivable.amount))}</div>
+                </div>
+            </div>
+
+            <!-- Exact Matches Section -->
+            ${result.exactMatches.isNotEmpty ? '''
+            <div class="section">
+                <div class="section-title">تطبیق‌های دقیق</div>
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            <th>وضعیت</th>
+                            <th>ردیف ورانگر</th>
+                            <th>مبلغ ورانگر</th>
+                            <th>ردیف بانک</th>
+                            <th>مبلغ بانک</th>
+                            <th>نوع تطبیق</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${result.exactMatches.map((match) => '''
+                            <tr class="match-row">
+                                <td><span class="status-badge status-exact">تطبیق</span></td>
+                                <td><span class="row-number">${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}</span></td>
+                                <td class="amount-cell">${PersianNumberFormatter.formatCurrency(match.payment.amount)}</td>
+                                <td><span class="row-number">${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}</span></td>
+                                <td class="amount-cell">${PersianNumberFormatter.formatCurrency(match.receivable.amount)}</td>
+                                <td>تطبیق دقیق</td>
+                            </tr>
+                        ''').join('')}
+                    </tbody>
+                </table>
+            </div>
+            ''' : ''}
+
+            <!-- Combination Matches Section -->
+            ${result.combinationMatches.where((match) => match.selectedOptionIndex >= 0).isNotEmpty ? '''
+            <div class="section">
+                <div class="section-title">تطبیق‌های ترکیبی</div>
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            <th>وضعیت</th>
+                            <th>ردیف ورانگر</th>
+                            <th>مبلغ ورانگر</th>
+                            <th>ردیف‌های بانک</th>
+                            <th>مبالغ بانک</th>
+                            <th>مجموع ترکیب</th>
+                            <th>نوع تطبیق</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${result.combinationMatches.where((match) => match.selectedOptionIndex >= 0).map((match) {
             final selectedOption = match.options[match.selectedOptionIndex];
+            final bankRows = selectedOption.receivables
+                .map((r) => PersianNumberFormatter.formatNumber(r.rowNumber))
+                .join(', ');
+            final bankAmounts = selectedOption.receivables
+                .map((r) => PersianNumberFormatter.formatCurrency(r.amount))
+                .join(', ');
             return '''
-                    <div class="match-item">
-                        <strong>ردیف پرداخت ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}</strong><br>
-                        مبلغ پرداخت: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}<br>
-                        ترکیب انتخاب شده:<br>
-                        ${selectedOption.receivables.map((receivable) => '• ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}').join('<br>')}<br>
-                        <strong>مجموع: ${PersianNumberFormatter.formatCurrency(selectedOption.totalAmount)}</strong>
-                    </div>
-                ''';
+                                <tr class="combination-row">
+                                    <td><span class="status-badge status-combination">ترکیب</span></td>
+                                    <td><span class="row-number">${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}</span></td>
+                                    <td class="amount-cell">${PersianNumberFormatter.formatCurrency(match.payment.amount)}</td>
+                                    <td><span class="row-number">$bankRows</span></td>
+                                    <td class="amount-cell">$bankAmounts</td>
+                                    <td class="amount-cell">${PersianNumberFormatter.formatCurrency(selectedOption.totalAmount)}</td>
+                                    <td>${selectedOption.isTerminalBased ? 'ترکیب ترمینال' : 'ترکیب معمولی'}</td>
+                                </tr>
+                            ''';
           }).join('')}
-        </div>
-        ''' : ''}
+                    </tbody>
+                </table>
+            </div>
+            ''' : ''}
 
-        ${result.unmatchedPayments.isNotEmpty ? '''
-        <div class="section">
-            <div class="section-title">پرداخت‌های نامطابق</div>
-            ${result.unmatchedPayments.map((payment) => '''
-                <div class="match-item">
-                    ردیف ${PersianNumberFormatter.formatNumber(payment.rowNumber)}: ${PersianNumberFormatter.formatCurrency(payment.amount)}
+            <!-- Unmatched Section -->
+            <div class="section">
+                <div class="section-title">رکوردهای نامطابق</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Unmatched Varanegar -->
+                    ${result.unmatchedPayments.isNotEmpty ? '''
+                    <div>
+                        <h4 style="color: #f59e0b; margin-bottom: 15px;">ورانگر نامطابق</h4>
+                        <table class="excel-table">
+                            <thead>
+                                <tr>
+                                    <th>ردیف</th>
+                                    <th>مبلغ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${result.unmatchedPayments.map((payment) => '''
+                                    <tr class="unmatched-row">
+                                        <td><span class="row-number">${PersianNumberFormatter.formatNumber(payment.rowNumber)}</span></td>
+                                        <td class="amount-cell">${PersianNumberFormatter.formatCurrency(payment.amount)}</td>
+                                    </tr>
+                                ''').join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    ''' : '<div><h4 style="color: #10b981;">ورانگر نامطابق</h4><p>همه رکوردها تطبیق شده‌اند</p></div>'}
+                    
+                    <!-- Unmatched Bank -->
+                    ${result.unmatchedReceivables.isNotEmpty ? '''
+                    <div>
+                        <h4 style="color: #f59e0b; margin-bottom: 15px;">بانک نامطابق</h4>
+                        <table class="excel-table">
+                            <thead>
+                                <tr>
+                                    <th>ردیف</th>
+                                    <th>مبلغ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${result.unmatchedReceivables.map((receivable) => '''
+                                    <tr class="unmatched-row">
+                                        <td><span class="row-number">${PersianNumberFormatter.formatNumber(receivable.rowNumber)}</span></td>
+                                        <td class="amount-cell">${PersianNumberFormatter.formatCurrency(receivable.amount)}</td>
+                                    </tr>
+                                ''').join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    ''' : '<div><h4 style="color: #10b981;">بانک نامطابق</h4><p>همه رکوردها تطبیق شده‌اند</p></div>'}
                 </div>
-            ''').join('')}
+            </div>
         </div>
-        ''' : ''}
 
-        ${result.unmatchedReceivables.isNotEmpty ? '''
-        <div class="section">
-            <div class="section-title">دریافت‌های نامطابق</div>
-            ${result.unmatchedReceivables.map((receivable) => '''
-                <div class="match-item">
-                    ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}: ${PersianNumberFormatter.formatCurrency(receivable.amount)}
-                </div>
-            ''').join('')}
-        </div>
-        ''' : ''}
-
-        <div class="summary">
-            <h3>خلاصه</h3>
-            <div class="summary-item">
-                <span>تطبیق‌های دقیق:</span>
-                <span>${PersianNumberFormatter.formatNumber(result.totalExactMatches)}</span>
-            </div>
-            <div class="summary-item">
-                <span>تطبیق‌های ترکیبی:</span>
-                <span>${PersianNumberFormatter.formatNumber(result.totalCombinationMatches)}</span>
-            </div>
-            <div class="summary-item">
-                <span>پرداخت‌های نامطابق:</span>
-                <span>${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)}</span>
-            </div>
-            <div class="summary-item">
-                <span>دریافت‌های نامطابق:</span>
-                <span>${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)}</span>
-            </div>
-            <div class="summary-item">
-                <span>مجموع مبالغ تطابق‌شده:</span>
-                <span>${PersianNumberFormatter.formatCurrency(result.totalMatchedAmount)}</span>
-            </div>
+        <div class="footer">
+            <p>گزارش تولید شده توسط سیستم مچیفای دسکتاپ</p>
+            <p>تاریخ تولید: ${DateTime.now().toLocal()}</p>
         </div>
     </div>
 </body>

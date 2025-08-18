@@ -21,7 +21,6 @@ class AppConstants {
 
   // Algorithm Constants
   static const int maxCombinationSize = 3;
-  static const int maxCombinationSizeWithRefCode = 5;
   static const double amountPrecision = 0.01;
 
   // Performance Constants

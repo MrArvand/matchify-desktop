@@ -335,7 +335,7 @@ class MatchingResultsSection extends ConsumerWidget {
                         ),
                       ] else ...[
                         Text(
-                          '${match.options.length} ${state.receivablesRefCodeColumn != null ? 'کد مرجع تطبیق یافته' : 'گزینه ترکیب موجود'}',
+                          '${match.options.length} گزینه ترکیب موجود',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: theme.colorScheme.onSurface.withOpacity(0.7),

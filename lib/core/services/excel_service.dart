@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:excel/excel.dart';
 import 'package:matchify_desktop/core/models/record.dart';
 import 'package:matchify_desktop/core/services/matching_service.dart';
@@ -11,7 +10,7 @@ class ExcelService {
     required int amountColumnIndex,
     required int startRow,
     required Function(double) onProgress,
-    int? refCodeColumnIndex,
+    int? terminalCodeColumnIndex,
   }) async {
     try {
       final bytes = await File(filePath).readAsBytes();
@@ -41,11 +40,20 @@ class ExcelService {
         final amount = MatchingService.parseAmount(amountStr);
         if (amount <= 0) continue;
 
-        // Extract ref code if column is specified
-        String? refCode;
-        if (refCodeColumnIndex != null && refCodeColumnIndex < rowData.length) {
-          final refCodeCell = rowData[refCodeColumnIndex];
-          refCode = refCodeCell?.value?.toString();
+        final additionalData = _extractAdditionalData(
+          rowData,
+          amountColumnIndex,
+        );
+
+        // Capture terminal code explicitly if column provided
+        if (terminalCodeColumnIndex != null &&
+            terminalCodeColumnIndex >= 0 &&
+            terminalCodeColumnIndex < rowData.length) {
+          final terminalCell = rowData[terminalCodeColumnIndex];
+          final terminalValue = terminalCell?.value?.toString();
+          if (terminalValue != null && terminalValue.isNotEmpty) {
+            additionalData['terminal_code'] = terminalValue;
+          }
         }
 
         records.add(
@@ -53,8 +61,7 @@ class ExcelService {
             rowNumber: row + 1, // Excel rows are 1-indexed
             amount: amount,
             originalAmount: amountStr,
-            refCode: refCode,
-            additionalData: _extractAdditionalData(rowData, amountColumnIndex),
+            additionalData: additionalData,
           ),
         );
 

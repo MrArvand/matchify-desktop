@@ -4,6 +4,7 @@ import 'package:matchify_desktop/presentation/widgets/file_upload_section.dart';
 import 'package:matchify_desktop/presentation/widgets/matching_results_section.dart';
 import 'package:matchify_desktop/presentation/widgets/export_section.dart';
 import 'package:matchify_desktop/presentation/widgets/combination_selection_section.dart';
+import 'package:matchify_desktop/presentation/widgets/auto_update_widget.dart';
 import 'package:matchify_desktop/presentation/widgets/theme_switch.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
 import 'package:matchify_desktop/presentation/providers/matching_provider.dart';
@@ -23,7 +24,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -39,7 +40,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Auto-navigate based on current step
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_tabController.index != state.currentStep) {
+      if (_tabController.index != state.currentStep && state.currentStep < 4) {
         _tabController.animateTo(state.currentStep);
       }
     });
@@ -68,13 +69,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           labelColor: AppTheme.primaryColor,
           unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.6),
           onTap: (index) {
-            ref.read(matchingProvider.notifier).setCurrentStep(index);
+            if (index < 4) {
+              ref.read(matchingProvider.notifier).setCurrentStep(index);
+            }
           },
           tabs: const [
             Tab(icon: Icon(Icons.upload_file), text: 'آپلود فایل‌ها'),
             Tab(icon: Icon(Icons.analytics), text: 'نتایج تطبیق'),
             Tab(icon: Icon(Icons.checklist), text: 'انتخاب ترکیب‌ها'),
             Tab(icon: Icon(Icons.download), text: 'خروجی'),
+            Tab(icon: Icon(Icons.system_update), text: 'به‌روزرسانی'),
           ],
         ),
       ),
@@ -88,6 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 MatchingResultsSection(),
                 CombinationSelectionSection(),
                 ExportSection(),
+                AutoUpdateWidget(),
               ],
             ),
           ),
