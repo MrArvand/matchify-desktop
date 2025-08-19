@@ -14,7 +14,6 @@ InfoBeforeFile=
 InfoAfterFile=
 OutputDir=output
 OutputBaseFilename=matchify-desktop-setup-{#AppVersion}
-SetupIconFile=assets\img\rabin.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -24,16 +23,12 @@ RestartApplications=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 MinVersion=10.0.17763
-# WizardImageFile=assets\img\rabin.bmp
-# WizardSmallImageFile=assets\img\rabin-small.bmp
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-# Name: "persian"; MessagesFile: "compiler:Languages\Persian.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
 
 [Files]
 Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -42,7 +37,6 @@ Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignorever
 Name: "{group}\Matchify Desktop"; Filename: "{app}\matchify_desktop.exe"
 Name: "{group}\{cm:UninstallProgram,Matchify Desktop}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Matchify Desktop"; Filename: "{app}\matchify_desktop.exe"; Tasks: desktopicon
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Matchify Desktop"; Filename: "{app}\matchify_desktop.exe"; Tasks: quicklaunchicon
 
 [Run]
 Filename: "{app}\matchify_desktop.exe"; Description: "{cm:LaunchProgram,Matchify Desktop}"; Flags: nowait postinstall skipifsilent
@@ -64,14 +58,4 @@ begin
     // Launch the application after installation
     Exec(ExpandConstant('{app}\matchify_desktop.exe'), '', '', SW_SHOW, ewNoWait, ResultCode);
   end;
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-end;
-
-procedure CurPageChanged(CurPageID: Integer);
-begin
-  // Handle page changes if needed
 end;

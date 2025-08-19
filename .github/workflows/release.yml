@@ -113,6 +113,17 @@ jobs:
             echo "✅ Inno Setup script prepared successfully"
             echo "Prepared script contents (first 10 lines):"
             Get-Content "setup-prepared.iss" | Select-Object -First 10
+            
+            # Also check for any problematic lines
+            echo "🔍 Checking for potential issues in prepared script..."
+            $content = Get-Content "setup-prepared.iss"
+            $lineNumber = 0
+            foreach ($line in $content) {
+              $lineNumber++
+              if ($line -match "WizardImageFile|WizardSmallImageFile|SetupIconFile") {
+                echo "⚠️  Line $lineNumber contains image reference: $line"
+              }
+            }
           } else {
             echo "❌ Failed to prepare Inno Setup script"
             exit 1
@@ -122,6 +133,14 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
         with:
           path: setup-prepared.iss
+          options: /O+
+        continue-on-error: true
+      
+      - name: Compile Inno Setup Installer (Fallback)
+        if: failure()
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
+        with:
+          path: setup-minimal.iss
           options: /O+
         
       - name: Verify Inno Setup output
@@ -145,6 +164,17 @@ jobs:
             } else {
               echo "Output directory does not exist"
             }
+            
+            # Try to find any installer that might have been created
+            echo "🔍 Searching for any installer files..."
+            $allFiles = Get-ChildItem -Recurse | Where-Object { $_.Name -like "*.exe" }
+            if ($allFiles) {
+              echo "Found executable files:"
+              $allFiles | Select-Object Name, Length, FullName
+            } else {
+              echo "No executable files found"
+            }
+            
             exit 1
           }
           
