@@ -69,7 +69,7 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
         with:
           path: setup.iss
-          options: /O+ /DAppVersion=${{ steps.version.outputs.clean }}
+          options: /DAppVersion=${{ steps.version.outputs.clean }}
 
       - name: Verify Inno Setup output
         run: |
