@@ -62,6 +62,8 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                   onFileSelected: (path) async {
                     notifier.setPaymentsFile(path);
                     await _loadHeaders(path, true);
+                    // Persist headers to provider for other screens
+                    notifier.setPaymentsHeaders(paymentsHeaders);
                     // Automatically load data when file is selected
                     if (state.paymentsAmountColumn >= 0) {
                       await notifier.loadPaymentsFile();
@@ -75,8 +77,11 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                       await notifier.loadPaymentsFile();
                     }
                   },
+                  terminalCodeColumn: null,
+                  onTerminalCodeColumnChanged: null,
                   isLoading: false, // Hide loading
                   progress: state.progress,
+                  isPayments: true,
                 ),
               ),
               const SizedBox(width: 24),
@@ -89,6 +94,7 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                   onFileSelected: (path) async {
                     notifier.setReceivablesFile(path);
                     await _loadHeaders(path, false);
+                    notifier.setReceivablesHeaders(receivablesHeaders);
                     // Automatically load data when file is selected
                     if (state.receivablesAmountColumn >= 0) {
                       await notifier.loadReceivablesFile();
@@ -112,6 +118,7 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                   },
                   isLoading: false, // Hide loading
                   progress: state.progress,
+                  isPayments: false,
                 ),
               ),
             ],
@@ -149,8 +156,11 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
     Function(int?)? onTerminalCodeColumnChanged,
     required bool isLoading,
     required double progress,
+    required bool isPayments,
   }) {
     final theme = Theme.of(context);
+    final state = ref.watch(matchingProvider);
+    final notifier = ref.read(matchingProvider.notifier);
 
     return Card(
       elevation: 0,
@@ -309,6 +319,39 @@ class _FileUploadSectionState extends ConsumerState<FileUploadSection> {
                 ),
                 const SizedBox(height: 16),
               ],
+
+              // Display Columns Multi-select (UX only)
+              Text(
+                'ستون‌های نمایشی برای خروجی/چاپ (اختیاری):',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: headers.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final isAmount = idx == amountColumn;
+                  final selected = isPayments
+                      ? state.paymentsSelectedColumns.contains(idx)
+                      : state.receivablesSelectedColumns.contains(idx);
+                  return FilterChip(
+                    selected: selected,
+                    onSelected: isAmount
+                        ? null
+                        : (val) {
+                            if (isPayments) {
+                              notifier.togglePaymentsDisplayColumn(idx);
+                            } else {
+                              notifier.toggleReceivablesDisplayColumn(idx);
+                            }
+                          },
+                    label: Text('${PersianNumberFormatter.formatNumber(idx + 1)}: ${entry.value}'),
+                  );
+                }).toList(),
+              ),
             ],
           ],
         ),

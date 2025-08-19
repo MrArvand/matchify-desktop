@@ -11,14 +11,19 @@ class MatchingState {
   final List<PaymentRecord> payments;
   final List<ReceivableRecord> receivables;
   final MatchingResult? result;
-  final List<CombinationMatch>?
-      originalCombinationMatches; // Store original matches before selections
+  final List<CombinationMatch>? originalCombinationMatches; // Store original matches before selections
   final String? paymentsFilePath;
   final String? receivablesFilePath;
   final int paymentsAmountColumn;
   final int receivablesAmountColumn;
   final int? receivablesTerminalCodeColumn;
   final int currentStep; // 0: Upload, 1: Results, 2: Selection, 3: Export
+
+  // New: Headers and display selections for UX-only export/print
+  final List<String> paymentsHeaders;
+  final List<String> receivablesHeaders;
+  final List<int> paymentsSelectedColumns;
+  final List<int> receivablesSelectedColumns;
 
   MatchingState({
     this.isLoading = false,
@@ -34,6 +39,10 @@ class MatchingState {
     this.receivablesAmountColumn = 0,
     this.receivablesTerminalCodeColumn,
     this.currentStep = 0,
+    this.paymentsHeaders = const [],
+    this.receivablesHeaders = const [],
+    this.paymentsSelectedColumns = const [],
+    this.receivablesSelectedColumns = const [],
   });
 
   MatchingState copyWith({
@@ -50,6 +59,10 @@ class MatchingState {
     int? receivablesAmountColumn,
     int? receivablesTerminalCodeColumn,
     int? currentStep,
+    List<String>? paymentsHeaders,
+    List<String>? receivablesHeaders,
+    List<int>? paymentsSelectedColumns,
+    List<int>? receivablesSelectedColumns,
   }) {
     return MatchingState(
       isLoading: isLoading ?? this.isLoading,
@@ -68,6 +81,12 @@ class MatchingState {
       receivablesTerminalCodeColumn:
           receivablesTerminalCodeColumn ?? this.receivablesTerminalCodeColumn,
       currentStep: currentStep ?? this.currentStep,
+      paymentsHeaders: paymentsHeaders ?? this.paymentsHeaders,
+      receivablesHeaders: receivablesHeaders ?? this.receivablesHeaders,
+      paymentsSelectedColumns:
+          paymentsSelectedColumns ?? this.paymentsSelectedColumns,
+      receivablesSelectedColumns:
+          receivablesSelectedColumns ?? this.receivablesSelectedColumns,
     );
   }
 }
@@ -83,22 +102,73 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
     state = state.copyWith(receivablesFilePath: filePath);
   }
 
+  void setPaymentsHeaders(List<String> headers) {
+    state = state.copyWith(paymentsHeaders: headers);
+  }
+
+  void setReceivablesHeaders(List<String> headers) {
+    state = state.copyWith(receivablesHeaders: headers);
+  }
+
+  void togglePaymentsDisplayColumn(int index) {
+    final current = List<int>.from(state.paymentsSelectedColumns);
+    if (current.contains(index)) {
+      current.remove(index);
+    } else {
+      current.add(index);
+    }
+    state = state.copyWith(paymentsSelectedColumns: current);
+  }
+
+  void toggleReceivablesDisplayColumn(int index) {
+    final current = List<int>.from(state.receivablesSelectedColumns);
+    if (current.contains(index)) {
+      current.remove(index);
+    } else {
+      current.add(index);
+    }
+    state = state.copyWith(receivablesSelectedColumns: current);
+  }
+
   void setPaymentsAmountColumn(int? columnIndex) {
     if (columnIndex != null) {
-      state = state.copyWith(paymentsAmountColumn: columnIndex);
+      // Ensure amount column is not in display selections
+      final filtered = state.paymentsSelectedColumns
+          .where((i) => i != columnIndex)
+          .toList();
+      state = state.copyWith(
+        paymentsAmountColumn: columnIndex,
+        paymentsSelectedColumns: filtered,
+      );
     }
   }
 
   void setReceivablesAmountColumn(int? columnIndex) {
     if (columnIndex != null) {
-      state = state.copyWith(receivablesAmountColumn: columnIndex);
+      final filtered = state.receivablesSelectedColumns
+          .where((i) => i != columnIndex)
+          .toList();
+      state = state.copyWith(
+        receivablesAmountColumn: columnIndex,
+        receivablesSelectedColumns: filtered,
+      );
     }
   }
 
   // Ref code column removed
 
   void setReceivablesTerminalCodeColumn(int? columnIndex) {
+    // Always set terminal code column
     state = state.copyWith(receivablesTerminalCodeColumn: columnIndex);
+
+    // Also pre-select it for display (UX), if provided
+    if (columnIndex != null) {
+      final current = List<int>.from(state.receivablesSelectedColumns);
+      if (!current.contains(columnIndex)) {
+        current.add(columnIndex);
+        state = state.copyWith(receivablesSelectedColumns: current);
+      }
+    }
   }
 
   Future<void> loadPaymentsFile() async {

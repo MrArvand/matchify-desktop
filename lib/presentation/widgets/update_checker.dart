@@ -12,7 +12,6 @@ class UpdateChecker extends ConsumerStatefulWidget {
 }
 
 class _UpdateCheckerState extends ConsumerState<UpdateChecker> {
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(autoUpdateProvider);
@@ -44,7 +43,6 @@ class _UpdateCheckerState extends ConsumerState<UpdateChecker> {
                         ),
                       ),
                     ),
-                    
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -125,7 +123,7 @@ class _UpdateCheckerState extends ConsumerState<UpdateChecker> {
                 ] else if (state.availableUpdate != null) ...[
                   _buildUpdateAvailableCard(state.availableUpdate!, theme),
                 ] else if (AutoUpdateService.isConfigured &&
-                    !state.isChecking) ...[
+                    state.hasChecked) ...[
                   _buildStatusCard(
                     'نسخه شما به‌روز است',
                     Icons.check_circle,
@@ -133,7 +131,7 @@ class _UpdateCheckerState extends ConsumerState<UpdateChecker> {
                     theme,
                   ),
                 ] else if (AutoUpdateService.isConfigured &&
-                    state.isChecking == false) ...[
+                    !state.hasChecked) ...[
                   _buildStatusCard(
                     'برای بررسی به‌روزرسانی، روی دکمه "بررسی به‌روزرسانی" کلیک کنید',
                     Icons.info_outline,
@@ -144,13 +142,12 @@ class _UpdateCheckerState extends ConsumerState<UpdateChecker> {
 
                 const SizedBox(height: 20),
 
-                // Action Buttons - Reorganized for better space usage
+                // Action Buttons - keep Check visible unless busy
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
                   children: [
                     if (AutoUpdateService.isConfigured &&
-                        state.availableUpdate == null &&
                         !state.isChecking &&
                         !state.isDownloading &&
                         !state.isInstalling)

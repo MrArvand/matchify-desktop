@@ -438,19 +438,75 @@ static const String _githubRepoUrl = 'https://github.com/johndoe/matchify-deskto
     try {
       print('Debug: Installing EXE installer: $installerPath');
 
-      // Launch the installer silently
+      // Verify the installer file exists and is accessible
+      final installerFile = File(installerPath);
+      if (!await installerFile.exists()) {
+        print('Debug: Installer file does not exist: $installerPath');
+        return false;
+      }
+
+      final fileSize = await installerFile.length();
+      print('Debug: Installer file size: $fileSize bytes');
+
+      // Check if file is actually an executable (should be > 1MB for a proper installer)
+      if (fileSize < 1024 * 1024) {
+        print(
+            'Debug: Warning: Installer file seems too small: $fileSize bytes');
+      }
+
+      // Check file extension
+      if (!installerPath.toLowerCase().endsWith('.exe')) {
+        print(
+            'Debug: Warning: File does not have .exe extension: $installerPath');
+      }
+
+      // Launch the installer with standard options (not silent to allow user interaction)
+      print('Debug: About to launch installer: $installerPath');
+
+      // Try to launch the installer with elevated privileges if needed
       final installResult = await Process.start(
         installerPath,
-        ['/SILENT', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'],
+        [], // No silent flags - let user see the installer
         mode: ProcessStartMode.detached,
+        runInShell: true, // Run in shell for better Windows compatibility
       );
 
       print('Debug: EXE installer launched with PID: ${installResult.pid}');
+      print('Debug: Installer process started successfully');
 
-      // Give installer time to start
-      await Future.delayed(const Duration(seconds: 5));
+      // Give installer time to start and show UI
+      await Future.delayed(const Duration(seconds: 2));
+      print('Debug: Installer should now be visible to user');
 
-      return true;
+      // Verify the process is actually running
+      try {
+        final isRunning = await isInstallerRunning();
+        if (isRunning) {
+          print('Debug: Installer process verified as running');
+          return true;
+        } else {
+          print(
+              'Debug: Installer process not found, trying fallback launch method');
+
+          // Fallback: try launching with different method
+          final fallbackResult = await Process.run(
+            installerPath,
+            [],
+            runInShell: true,
+          );
+
+          if (fallbackResult.exitCode == 0) {
+            print('Debug: Fallback launch successful');
+            return true;
+          } else {
+            print('Debug: Fallback launch failed: ${fallbackResult.stderr}');
+            return false;
+          }
+        }
+      } catch (e) {
+        print('Debug: Error verifying installer process: $e');
+        return true; // Assume success if we can't verify
+      }
     } catch (e) {
       print('Debug: EXE installer installation failed: $e');
       return false;
@@ -850,6 +906,89 @@ del "%~f0"
       print('Debug: Error closing app: $e');
       // Fallback: just exit the app
       exit(0);
+    }
+  }
+
+  /// Check if an installer process is still running
+  static Future<bool> isInstallerRunning() async {
+    try {
+      if (Platform.isWindows) {
+        print('Debug: Checking for running installer processes...');
+
+        // Check for common installer processes
+        final result =
+            await Process.run('tasklist', ['/FI', 'IMAGENAME eq setup.exe']);
+        if (result.exitCode == 0 && result.stdout.contains('setup.exe')) {
+          print('Debug: Installer process (setup.exe) is still running');
+          return true;
+        }
+
+        // Check for Inno Setup processes
+        final innoResult =
+            await Process.run('tasklist', ['/FI', 'IMAGENAME eq innosetup*']);
+        if (innoResult.exitCode == 0 &&
+            innoResult.stdout.contains('innosetup')) {
+          print('Debug: Inno Setup process is still running');
+          return true;
+        }
+
+        // Also check for any process with "matchify" in the name
+        final matchifyResult =
+            await Process.run('tasklist', ['/FI', 'IMAGENAME eq matchify*']);
+        if (matchifyResult.exitCode == 0 &&
+            matchifyResult.stdout.contains('matchify')) {
+          print('Debug: Matchify installer process is still running');
+          return true;
+        }
+
+        // Check for any .exe processes that might be our installer
+        final exeResult =
+            await Process.run('tasklist', ['/FI', 'IMAGENAME eq *.exe']);
+        if (exeResult.exitCode == 0) {
+          final lines = exeResult.stdout.split('\n');
+          for (final line in lines) {
+            if (line.toLowerCase().contains('matchify') ||
+                line.toLowerCase().contains('setup') ||
+                line.toLowerCase().contains('installer')) {
+              print('Debug: Found potential installer process: $line');
+              return true;
+            }
+          }
+        }
+      }
+
+      print('Debug: No installer processes found running');
+      return false;
+    } catch (e) {
+      print('Debug: Error checking installer processes: $e');
+      return false;
+    }
+  }
+
+  /// Wait for installer to complete with timeout
+  static Future<bool> waitForInstallerCompletion(
+      {int timeoutSeconds = 60}) async {
+    try {
+      print(
+          'Debug: Waiting for installer to complete (timeout: ${timeoutSeconds}s)...');
+
+      final startTime = DateTime.now();
+      while (DateTime.now().difference(startTime).inSeconds < timeoutSeconds) {
+        final isRunning = await isInstallerRunning();
+        if (!isRunning) {
+          print('Debug: Installer process completed');
+          return true;
+        }
+
+        print('Debug: Installer still running, waiting...');
+        await Future.delayed(const Duration(seconds: 2));
+      }
+
+      print('Debug: Timeout waiting for installer completion');
+      return false;
+    } catch (e) {
+      print('Debug: Error waiting for installer completion: $e');
+      return false;
     }
   }
 

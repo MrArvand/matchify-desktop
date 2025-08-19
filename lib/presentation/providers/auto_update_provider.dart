@@ -8,6 +8,7 @@ class AutoUpdateState {
   final UpdateInfo? availableUpdate;
   final String? error;
   final bool isInstalling;
+  final bool hasChecked;
 
   AutoUpdateState({
     this.isChecking = false,
@@ -16,6 +17,7 @@ class AutoUpdateState {
     this.availableUpdate,
     this.error,
     this.isInstalling = false,
+    this.hasChecked = false,
   });
 
   AutoUpdateState copyWith({
@@ -25,6 +27,7 @@ class AutoUpdateState {
     UpdateInfo? availableUpdate,
     String? error,
     bool? isInstalling,
+    bool? hasChecked,
   }) {
     return AutoUpdateState(
       isChecking: isChecking ?? this.isChecking,
@@ -33,6 +36,7 @@ class AutoUpdateState {
       availableUpdate: availableUpdate ?? this.availableUpdate,
       error: error ?? this.error,
       isInstalling: isInstalling ?? this.isInstalling,
+      hasChecked: hasChecked ?? this.hasChecked,
     );
   }
 }
@@ -52,6 +56,7 @@ class AutoUpdateNotifier extends StateNotifier<AutoUpdateState> {
       state = state.copyWith(
         isChecking: false,
         availableUpdate: updateInfo,
+        hasChecked: true,
       );
       
       if (updateInfo != null) {
@@ -83,6 +88,7 @@ class AutoUpdateNotifier extends StateNotifier<AutoUpdateState> {
       state = state.copyWith(
         isChecking: false,
         error: errorMessage,
+        hasChecked: true,
       );
     }
   }
@@ -137,8 +143,37 @@ class AutoUpdateNotifier extends StateNotifier<AutoUpdateState> {
         // Wait a moment for the user to see the message
         await Future.delayed(const Duration(seconds: 3));
 
-        // Close the app to complete the update
-        await AutoUpdateService.closeAppForUpdate();
+        // For EXE installers, wait for the installer to start and then close the appfi
+        if (updateFilePath.toLowerCase().endsWith('.exe')) {
+          print('Debug: EXE installer launched, waiting for it to start...');
+
+          // Wait a bit longer for the installer to fully start
+          await Future.delayed(const Duration(seconds: 5));
+
+          // Check if installer is still running
+          final installerRunning = await AutoUpdateService.isInstallerRunning();
+          if (installerRunning) {
+            print('Debug: Installer is running, waiting for it to complete...');
+
+            // Wait for installer to complete with timeout
+            final completed =
+                await AutoUpdateService.waitForInstallerCompletion(
+                    timeoutSeconds: 30);
+            if (completed) {
+              print('Debug: Installer completed successfully, closing app');
+            } else {
+              print('Debug: Installer timeout, closing app anyway');
+            }
+
+            await AutoUpdateService.closeAppForUpdate();
+          } else {
+            print('Debug: Installer may have completed, closing app anyway');
+            await AutoUpdateService.closeAppForUpdate();
+          }
+        } else {
+          // For ZIP updates, close the app manually
+          await AutoUpdateService.closeAppForUpdate();
+        }
       } else {
         state = state.copyWith(
           isInstalling: false,

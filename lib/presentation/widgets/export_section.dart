@@ -118,8 +118,7 @@ class ExportSection extends ConsumerWidget {
             count: result.totalCombinationMatches,
             amount: result.combinationMatches.fold(0.0, (sum, match) {
               if (match.selectedOptionIndex >= 0) {
-                return sum +
-                    match.options[match.selectedOptionIndex].totalAmount;
+                return sum + match.options[match.selectedOptionIndex].totalAmount;
               }
               return sum;
             }),
@@ -277,12 +276,10 @@ class ExportSection extends ConsumerWidget {
   Widget _buildResultsPreview(MatchingState state, ThemeData theme) {
     final result = state.result!;
 
-    // Pre-calculate the variables outside the Column's children list
+    // Pre-calc
     final selectedCombinations = result.combinationMatches
         .where((match) => match.selectedOptionIndex >= 0)
         .toList();
-    final totalUnmatched =
-        result.totalUnmatchedPayments + result.totalUnmatchedReceivables;
 
     return Card(
       elevation: 0,
@@ -300,27 +297,24 @@ class ExportSection extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
-            // Exact Matches - Show all rows
             if (result.exactMatches.isNotEmpty) ...[
               _buildSectionHeader('تطبیق‌های دقیق', Icons.check_circle,
                   AppTheme.successColor, theme),
               const SizedBox(height: 12),
               ...result.exactMatches
-                  .map((match) => _buildExactMatchItem(match, theme)),
+                  .map((match) => _buildExactMatchItem(match, state, theme)),
               const SizedBox(height: 20),
             ],
 
-            // Combination Matches - Show all rows with detailed combinations
             if (selectedCombinations.isNotEmpty) ...[
               _buildSectionHeader('تطبیق‌های ترکیبی', Icons.merge_type,
                   AppTheme.accentColor, theme),
               const SizedBox(height: 12),
               ...selectedCombinations
-                  .map((match) => _buildCombinationMatchItem(match, theme)),
+                  .map((match) => _buildCombinationMatchItem(match, state, theme)),
               const SizedBox(height: 20),
             ],
 
-            // Unmatched Payments - Show all rows
             if (result.unmatchedPayments.isNotEmpty) ...[
               _buildSectionHeader('${AppConstants.varangarShortName} نامطابق',
                   Icons.warning, AppTheme.warningColor, theme),
@@ -329,22 +323,26 @@ class ExportSection extends ConsumerWidget {
                     'ردیف ${PersianNumberFormatter.formatNumber(payment.rowNumber)}',
                     PersianNumberFormatter.formatCurrency(payment.amount),
                     AppConstants.varangarShortName,
+                    state,
                     theme,
+                    isPayment: true,
+                    rowNumber: payment.rowNumber,
                   )),
               const SizedBox(height: 20),
             ],
 
-            // Unmatched Receivables - Show all rows
             if (result.unmatchedReceivables.isNotEmpty) ...[
               _buildSectionHeader('${AppConstants.bankShortName} نامطابق',
                   Icons.warning, AppTheme.warningColor, theme),
               const SizedBox(height: 12),
-              ...result.unmatchedReceivables.map((receivable) =>
-                  _buildUnmatchedItem(
+              ...result.unmatchedReceivables.map((receivable) => _buildUnmatchedItem(
                     'ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}',
                     PersianNumberFormatter.formatCurrency(receivable.amount),
                     AppConstants.bankShortName,
+                    state,
                     theme,
+                    isPayment: false,
+                    rowNumber: receivable.rowNumber,
                   )),
             ],
           ],
@@ -370,7 +368,8 @@ class ExportSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildExactMatchItem(ExactMatch match, ThemeData theme) {
+  Widget _buildExactMatchItem(
+      ExactMatch match, MatchingState state, ThemeData theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
@@ -405,44 +404,31 @@ class ExportSection extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+                child: _buildRowWithExtras(
+                  title:
                       '${AppConstants.varangarShortName}: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
+                  amount:
                       'مبلغ: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                    ),
-                  ],
+                  isPayment: true,
+                  rowNumber: match.payment.rowNumber,
+                  state: state,
+                  theme: theme,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+                child: _buildRowWithExtras(
+                  title:
                       '${AppConstants.bankShortName}: ردیف ${PersianNumberFormatter.formatNumber(match.receivable.rowNumber)}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
+                  amount:
                       'مبلغ: ${PersianNumberFormatter.formatCurrency(match.receivable.amount)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                    ),
-                  ],
+                  isPayment: false,
+                  rowNumber: match.receivable.rowNumber,
+                  state: state,
+                  theme: theme,
                 ),
               ),
             ],
@@ -452,7 +438,8 @@ class ExportSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildCombinationMatchItem(CombinationMatch match, ThemeData theme) {
+  Widget _buildCombinationMatchItem(
+      CombinationMatch match, MatchingState state, ThemeData theme) {
     final selectedOption = match.options[match.selectedOptionIndex];
 
     return Container(
@@ -490,32 +477,16 @@ class ExportSection extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // Payment row
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(8),
-              border:
-                  Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${AppConstants.varangarShortName}: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  'مبلغ: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-              ],
-            ),
+          // Payment row + extras
+          _buildRowWithExtras(
+            title:
+                '${AppConstants.varangarShortName}: ردیف ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}',
+            amount:
+                'مبلغ: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}',
+            isPayment: true,
+            rowNumber: match.payment.rowNumber,
+            state: state,
+            theme: theme,
           ),
           const SizedBox(height: 8),
 
@@ -533,27 +504,19 @@ class ExportSection extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.secondaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                      color: AppTheme.secondaryColor.withOpacity(0.3)),
+                  border:
+                      Border.all(color: AppTheme.secondaryColor.withOpacity(0.3)),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.receipt,
-                        color: AppTheme.secondaryColor, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
+                child: _buildRowWithExtras(
+                  title:
                       'ردیف ${PersianNumberFormatter.formatNumber(receivable.rowNumber)}',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const Spacer(),
-                    Text(
+                  amount:
                       PersianNumberFormatter.formatCurrency(receivable.amount),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.secondaryColor,
-                      ),
-                    ),
-                  ],
+                  isPayment: false,
+                  rowNumber: receivable.rowNumber,
+                  state: state,
+                  theme: theme,
+                  inline: true,
                 ),
               )),
         ],
@@ -561,8 +524,9 @@ class ExportSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildUnmatchedItem(
-      String rowInfo, String amount, String type, ThemeData theme) {
+  Widget _buildUnmatchedItem(String rowInfo, String amount, String type,
+      MatchingState state, ThemeData theme,
+      {required bool isPayment, required int rowNumber}) {
     return Container(
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 8),
@@ -572,6 +536,7 @@ class ExportSection extends ConsumerWidget {
         border: Border.all(color: AppTheme.warningColor.withOpacity(0.3)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.warning_amber_rounded,
               color: AppTheme.warningColor, size: 20),
@@ -585,6 +550,13 @@ class ExportSection extends ConsumerWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
+                ),
+                const SizedBox(height: 4),
+                _buildExtraColumnsRow(
+                  isPayment: isPayment,
+                  rowNumber: rowNumber,
+                  state: state,
+                  theme: theme,
                 ),
                 Text(
                   'نامطابق',
@@ -608,31 +580,89 @@ class ExportSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildMatchItem(String description, String amount, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              description,
-              style: theme.textTheme.bodyMedium,
-            ),
+  Widget _buildRowWithExtras({
+    required String title,
+    required String amount,
+    required bool isPayment,
+    required int rowNumber,
+    required MatchingState state,
+    required ThemeData theme,
+    bool inline = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
-          Text(
-            amount,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppTheme.primaryColor,
-            ),
+        ),
+        Text(
+          amount,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
           ),
-        ],
+        ),
+        const SizedBox(height: 4),
+        _buildExtraColumnsRow(
+          isPayment: isPayment,
+          rowNumber: rowNumber,
+          state: state,
+          theme: theme,
+          inline: inline,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExtraColumnsRow({
+    required bool isPayment,
+    required int rowNumber,
+    required MatchingState state,
+    required ThemeData theme,
+    bool inline = false,
+  }) {
+    // Selected columns and headers
+    final selected = isPayment
+        ? state.paymentsSelectedColumns
+        : state.receivablesSelectedColumns;
+    final headers = isPayment ? state.paymentsHeaders : state.receivablesHeaders;
+
+    if (selected.isEmpty || headers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Find record additionalData
+    final record = isPayment
+        ? state.payments.firstWhere(
+            (r) => r.rowNumber == rowNumber,
+            orElse: () => state.payments.first,
+          )
+        : state.receivables.firstWhere(
+            (r) => r.rowNumber == rowNumber,
+            orElse: () => state.receivables.first,
+          );
+
+    final chips = selected.map((colIndex) {
+      // amount column excluded upstream
+      final key = 'col_$colIndex';
+      final value = record.additionalData[key]?.toString() ?? '-';
+      final labelIdx = PersianNumberFormatter.formatNumber(colIndex + 1);
+      final labelHeader = colIndex < headers.length ? headers[colIndex] : '';
+      return Chip(
+        label: Text('$labelIdx: $labelHeader = $value'),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      );
+    }).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: chips,
       ),
     );
   }
@@ -670,7 +700,16 @@ class ExportSection extends ConsumerWidget {
 
   Future<void> _printReport(MatchingResult result, WidgetRef ref) async {
     try {
-      await PrintService.printReport(result);
+      final state = ref.read(matchingProvider);
+      await PrintService.printReport(
+        result: result,
+        payments: state.payments,
+        receivables: state.receivables,
+        paymentsSelectedColumns: state.paymentsSelectedColumns,
+        receivablesSelectedColumns: state.receivablesSelectedColumns,
+        paymentsHeaders: state.paymentsHeaders,
+        receivablesHeaders: state.receivablesHeaders,
+      );
 
       ScaffoldMessenger.of(ref.context).showSnackBar(
         const SnackBar(

@@ -18,6 +18,19 @@ jobs:
         with:
           flutter-version: '3.32.8'  # Matches your local Flutter version exactly
           channel: 'stable'
+
+      - name: Sync pubspec version with tag
+        shell: pwsh
+        run: |
+          $ref = "${{ github.ref_name }}"
+          $clean = $ref -replace '^v',''
+          Write-Host "Setting pubspec.yaml version to $clean+1"
+          $path = "pubspec.yaml"
+          $content = Get-Content $path -Raw
+          $newContent = $content -replace "(?m)^version:\s*.*$", "version: $clean+1"
+          Set-Content -Path $path -Value $newContent -Encoding UTF8
+          Write-Host "pubspec.yaml version updated"
+          Write-Host "Current version line:" (Select-String -Path $path -Pattern "^version:")
           
       - name: Get dependencies
         run: flutter pub get
