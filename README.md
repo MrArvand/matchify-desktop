@@ -40,11 +40,25 @@
 
 ### **Installation Steps - مراحل نصب**
 
-1. **Download**: Download the latest installer from the official repository
-2. **Run Installer**: Double-click the `.exe` installer file
+#### **Option 1: Professional Installer (Recommended)**
+1. **Download**: Download the latest `.exe` installer from the official repository
+2. **Run Installer**: Double-click the `matchify-desktop-setup-{version}.exe` file
 3. **Follow Setup**: Accept license agreement and choose installation location
 4. **Complete Installation**: Wait for installation to complete
 5. **Launch Application**: Start Matchify Desktop from Start Menu or Desktop shortcut
+
+#### **Option 2: Manual Installation**
+1. **Download**: Download the backup `.zip` file from the official repository
+2. **Extract**: Extract the ZIP file to a folder of your choice
+3. **Run**: Double-click `matchify_desktop.exe` to launch the application
+
+---
+
+### **Auto-Update System - سیستم به‌روزرسانی خودکار**
+- **Automatic Updates**: Check for updates directly from within the application
+- **Professional Installers**: Updates are delivered as professional .exe installers
+- **Seamless Installation**: Automatic download and installation of updates
+- **Fallback Support**: ZIP backup files available if needed
 
 ---
 
@@ -98,6 +112,38 @@
 ### **Performance Settings - تنظیمات عملکرد**
 - **Max Combination Size**: Configurable limit for combination members (default: 10)
 - **Processing Time Limit**: Maximum time for combination calculations (default: 30 seconds)
+
+---
+
+## 🔧 Development & Build - توسعه و ساخت
+
+### **Build System - سیستم ساخت**
+- **Flutter**: Cross-platform development framework
+- **Windows**: Primary target platform with native Windows features
+- **Inno Setup**: Professional installer creation using [Inno-Setup-Action](https://github.com/Minionguyjpro/Inno-Setup-Action)
+- **GitHub Actions**: Automated CI/CD pipeline for releases
+
+### **Release Workflow - گردش کار انتشار**
+1. **Version Update**: Update version in `pubspec.yaml`
+2. **Git Tag**: Create and push version tag (e.g., `v1.0.1`)
+3. **Automated Build**: GitHub Actions builds Windows executable
+4. **Installer Creation**: Inno Setup compiles professional .exe installer
+5. **Release**: GitHub release with both .exe installer and ZIP backup
+
+### **Local Development - توسعه محلی**
+```bash
+# Install dependencies
+flutter pub get
+
+# Run in debug mode
+flutter run -d windows
+
+# Build for release
+flutter build windows --release
+
+# Test Inno Setup script
+.\scripts\test-inno-setup.ps1 -Version 1.0.0
+```
 - **Amount Precision**: Integer-based amounts for exact calculations
 - **Memory Optimization**: Efficient handling of large datasets
 

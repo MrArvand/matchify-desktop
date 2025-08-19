@@ -43,20 +43,28 @@ class AutoUpdateNotifier extends StateNotifier<AutoUpdateState> {
   /// Check for available updates
   Future<void> checkForUpdates() async {
     try {
+      print('Debug: Starting update check in provider...');
       state = state.copyWith(isChecking: true, error: null);
 
       final updateInfo = await AutoUpdateService.checkForUpdates();
+      print('Debug: Update check result: $updateInfo');
       
       state = state.copyWith(
         isChecking: false,
         availableUpdate: updateInfo,
       );
+      
+      if (updateInfo != null) {
+        print('Debug: Update available: ${updateInfo.version}');
+      } else {
+        print('Debug: No update available');
+      }
     } catch (e, stackTrace) {
       print('Error in checkForUpdates: $e');
       print('Stack trace: $stackTrace');
-
+      
       String errorMessage = 'خطا در بررسی به‌روزرسانی';
-
+      
       if (e.toString().contains('null')) {
         errorMessage =
             'خطا در پردازش اطلاعات به‌روزرسانی - لطفاً دوباره تلاش کنید';
@@ -65,6 +73,9 @@ class AutoUpdateNotifier extends StateNotifier<AutoUpdateState> {
             'خطا در اتصال به اینترنت - لطفاً اتصال خود را بررسی کنید';
       } else if (e.toString().contains('SocketException')) {
         errorMessage = 'خطا در اتصال به سرور - لطفاً دوباره تلاش کنید';
+      } else if (e.toString().contains('Repository URLs not configured')) {
+        errorMessage =
+            'تنظیمات مخزن GitHub ناقص است. لطفاً آن را در auto_update_service.dart تنظیم کنید.';
       } else {
         errorMessage = 'خطا در بررسی به‌روزرسانی: $e';
       }
@@ -116,8 +127,18 @@ class AutoUpdateNotifier extends StateNotifier<AutoUpdateState> {
 
       if (success) {
         // Update installation started successfully
-        // The app will be replaced by the new version
-        state = state.copyWith(isInstalling: false);
+        // Show a message that the app will restart
+        state = state.copyWith(
+          isInstalling: false,
+          error:
+              'به‌روزرسانی در حال نصب است. برنامه به زودی مجدداً راه‌اندازی خواهد شد.',
+        );
+
+        // Wait a moment for the user to see the message
+        await Future.delayed(const Duration(seconds: 3));
+
+        // Close the app to complete the update
+        await AutoUpdateService.closeAppForUpdate();
       } else {
         state = state.copyWith(
           isInstalling: false,

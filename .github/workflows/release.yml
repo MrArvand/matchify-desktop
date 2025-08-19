@@ -56,86 +56,163 @@ jobs:
             Get-ChildItem "build" -Recurse -Directory | Select-Object FullName
           }
         
-      - name: Create release archive
+      - name: Prepare Inno Setup script
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          echo "Preparing Inno Setup script for version: $version"
+          
+          # Create scripts directory if it doesn't exist
+          if (!(Test-Path "scripts")) {
+            New-Item -ItemType Directory -Path "scripts" -Force
+          }
+          
+          # Create the prepare script inline
+          $prepareScript = @'
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$Version
+          )
+          
+          Write-Host "Preparing Inno Setup script for version: $Version"
+          
+          # Remove 'v' prefix if present
+          $cleanVersion = $Version -replace "^v", ""
+          
+          # Read the template Inno Setup script
+          $templatePath = "setup.iss"
+          $templateContent = Get-Content -Path $templatePath -Raw -Encoding UTF8
+          
+          # Replace the version placeholder
+          $updatedContent = $templateContent -replace "\{#AppVersion\}", $cleanVersion
+          
+          # Write the updated script
+          $outputPath = "setup-prepared.iss"
+          $updatedContent | Out-File -FilePath $outputPath -Encoding UTF8
+          
+          Write-Host "Inno Setup script prepared: $outputPath"
+          Write-Host "Version set to: $cleanVersion"
+          
+          # Verify the file was created
+          if (Test-Path $outputPath) {
+              $fileSize = (Get-Item $outputPath).Length
+              Write-Host "File created successfully. Size: $fileSize bytes"
+          } else {
+              Write-Error "Failed to create prepared Inno Setup script"
+              exit 1
+          }
+          '@
+          
+          $prepareScript | Out-File -FilePath "scripts\prepare-inno-setup.ps1" -Encoding UTF8
+          
+          # Run the prepare script
+          & "scripts\prepare-inno-setup.ps1" -Version $version
+          
+          # Verify the prepared script exists
+          if (Test-Path "setup-prepared.iss") {
+            echo "✅ Inno Setup script prepared successfully"
+            echo "Prepared script contents (first 10 lines):"
+            Get-Content "setup-prepared.iss" | Select-Object -First 10
+          } else {
+            echo "❌ Failed to prepare Inno Setup script"
+            exit 1
+          }
+        
+      - name: Compile Inno Setup Installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
+        with:
+          path: setup-prepared.iss
+          options: /O+
+        
+      - name: Verify Inno Setup output
+        run: |
+          echo "Checking Inno Setup compilation output..."
+          
+          # Look for the generated installer
+          $installerName = "matchify-desktop-setup-${{ github.ref_name }}.exe"
+          $installerPath = "output\$installerName"
+          
+          if (Test-Path $installerPath) {
+            $installerSize = (Get-Item $installerPath).Length
+            echo "✅ Installer created successfully: $installerName"
+            echo "📁 Installer size: $([math]::Round($installerSize / 1MB, 2)) MB"
+            echo "📍 Installer path: $installerPath"
+          } else {
+            echo "❌ Installer not found at expected path: $installerPath"
+            echo "📂 Checking output directory contents:"
+            if (Test-Path "output") {
+              Get-ChildItem "output" | Select-Object Name, Length, LastWriteTime
+            } else {
+              echo "Output directory does not exist"
+            }
+            exit 1
+          }
+          
+          # List all files in output directory
+          echo "📂 All files in output directory:"
+          if (Test-Path "output") {
+            Get-ChildItem "output" -Recurse | Select-Object Name, Length, FullName
+          }
+        
+      - name: Create release archive (optional backup)
         run: |
           $version = "${{ github.ref_name }}"
           $version = $version -replace "v", ""
           
-          # Check if build directory exists
+          # Create a backup ZIP for users who prefer it
           if (Test-Path "build\windows\x64\runner\Release") {
-            echo "Creating archive for version: $version"
-            $archiveName = "matchify-desktop-windows-$version.zip"
-            Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath $archiveName -Force
-            echo "Archive created successfully: $archiveName"
+            echo "Creating backup ZIP archive for version: $version"
+            $zipName = "matchify-desktop-windows-$version-backup.zip"
+            Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath $zipName -Force
+            echo "Backup ZIP created: $zipName"
             
-            # List the created archive
-            if (Test-Path $archiveName) {
-              $archiveSize = (Get-Item $archiveName).Length
-              echo "Archive size: $([math]::Round($archiveSize / 1MB, 2)) MB"
-              
-              # List files in the archive to verify contents
-              echo "Archive contents:"
-              Expand-Archive -Path $archiveName -DestinationPath "temp_extract" -Force
-              Get-ChildItem "temp_extract" -Recurse | Select-Object Name, Length
-              Remove-Item "temp_extract" -Recurse -Force
+            if (Test-Path $zipName) {
+              $zipSize = (Get-Item $zipName).Length
+              echo "Backup ZIP size: $([math]::Round($zipSize / 1MB, 2)) MB"
             }
-          } else {
-            echo "ERROR: Build directory not found!"
-            echo "Build failed or path is incorrect"
-            exit 1
           }
           
-      - name: Rename archive for release
+      - name: Verify final release files
         run: |
           $version = "${{ github.ref_name }}"
           $version = $version -replace "v", ""
-          $oldName = "matchify-desktop-windows-$version.zip"
-          $newName = "matchify-desktop-windows-${{ github.ref_name }}.zip"
           
-          echo "Renaming archive for release compatibility..."
-          echo "Old name: $oldName"
-          echo "New name: $newName"
+          echo "Verifying final release files for version: $version"
           
-          if (Test-Path $oldName) {
-            Rename-Item -Path $oldName -NewName $newName
-            echo "✅ Archive renamed successfully"
-            
-            # Verify the new file exists
-            if (Test-Path $newName) {
-              $archiveSize = (Get-Item $newName).Length
-              echo "📁 New archive: $newName"
-              echo "📊 Size: $([math]::Round($archiveSize / 1MB, 2)) MB"
-            }
+          # Check installer
+          $installerName = "matchify-desktop-setup-$version.exe"
+          $installerPath = "output\$installerName"
+          
+          if (Test-Path $installerPath) {
+            $installerSize = (Get-Item $installerPath).Length
+            echo "✅ Main installer: $installerName"
+            echo "📁 Size: $([math]::Round($installerSize / 1MB, 2)) MB"
           } else {
-            echo "❌ Original archive not found: $oldName"
-            exit 1
+            echo "❌ Main installer not found: $installerPath"
           }
           
-      - name: Verify archive file
-        run: |
-          $releaseFileName = "matchify-desktop-windows-${{ github.ref_name }}.zip"
+          # Check backup ZIP
+          $zipName = "matchify-desktop-windows-$version-backup.zip"
+          if (Test-Path $zipName) {
+            $zipSize = (Get-Item $zipName).Length
+            echo "✅ Backup ZIP: $zipName"
+            echo "📁 Size: $([math]::Round($zipSize / 1MB, 2)) MB"
+          }
           
-          echo "Verifying archive file for release: $releaseFileName"
-          if (Test-Path $releaseFileName) {
-            $archiveSize = (Get-Item $releaseFileName).Length
-            echo "✅ Archive file exists: $releaseFileName"
-            echo "📁 Archive size: $([math]::Round($archiveSize / 1MB, 2)) MB"
-            
-            # List current directory to see all files
-            echo "📂 Files in current directory:"
-            Get-ChildItem | Select-Object Name, Length, LastWriteTime
-          } else {
-            echo "❌ Archive file not found: $releaseFileName"
-            echo "📂 Files in current directory:"
-            Get-ChildItem | Select-Object Name, Length, LastWriteTime
-            exit 1
+          # List all available files
+          echo "📂 All available release files:"
+          Get-ChildItem | Where-Object { $_.Name -like "*$version*" } | Select-Object Name, Length, LastWriteTime
+          if (Test-Path "output") {
+            echo "📂 Files in output directory:"
+            Get-ChildItem "output" | Select-Object Name, Length, LastWriteTime
           }
           
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            matchify-desktop-windows-${{ github.ref_name }}.zip
+            output/matchify-desktop-setup-${{ github.ref_name }}.exe
+            matchify-desktop-windows-${{ github.ref_name }}-backup.zip
           body: |
             ## نسخه ${{ github.ref_name }}
             
@@ -144,14 +221,33 @@ jobs:
             - رفع مشکلات گزارش‌گیری
             - بهبود رابط کاربری
             - اضافه شدن سیستم به‌روزرسانی خودکار
+            - **نصب‌کننده حرفه‌ای Inno Setup** 🎉
             
             ### دانلود:
-            فایل اجرایی ویندوز در فایل ZIP بالا قرار دارد.
+            **نصب‌کننده اصلی (توصیه شده):**
+            فایل `matchify-desktop-setup-${{ github.ref_name }}.exe` - نصب‌کننده حرفه‌ای با رابط کاربری زیبا
+            
+            **نسخه پشتیبان:**
+            فایل `matchify-desktop-windows-${{ github.ref_name }}-backup.zip` - برای کاربرانی که ترجیح می‌دهند از ZIP استفاده کنند
             
             ### نصب:
+            **با نصب‌کننده Inno Setup (توصیه شده):**
+            1. فایل `matchify-desktop-setup-${{ github.ref_name }}.exe` را دانلود کنید
+            2. فایل را اجرا کنید و مراحل نصب را دنبال کنید
+            3. نصب‌کننده به صورت خودکار میانبرها را ایجاد می‌کند
+            
+            **با فایل ZIP:**
             1. فایل ZIP را دانلود کنید
             2. محتویات را در پوشه‌ای مناسب استخراج کنید
             3. فایل `matchify_desktop.exe` را اجرا کنید
+            
+            ### مزایای نصب‌کننده Inno Setup:
+            ✅ نصب حرفه‌ای با رابط کاربری زیبا
+            ✅ ایجاد میانبر در منوی Start و Desktop
+            ✅ پشتیبانی از Uninstaller
+            ✅ نصب خودکار و بدون نیاز به تعامل کاربر
+            ✅ مدیریت بهتر فایل‌ها و پوشه‌ها
+            ✅ پشتیبانی از زبان فارسی
             
             ### به‌روزرسانی خودکار:
             این نسخه از سیستم به‌روزرسانی خودکار پشتیبانی می‌کند.

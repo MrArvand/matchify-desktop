@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:matchify_desktop/presentation/providers/auto_update_provider.dart';
 import 'package:matchify_desktop/core/services/auto_update_service.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 class UpdateChecker extends ConsumerStatefulWidget {
   const UpdateChecker({super.key});
@@ -13,20 +12,6 @@ class UpdateChecker extends ConsumerStatefulWidget {
 }
 
 class _UpdateCheckerState extends ConsumerState<UpdateChecker> {
-  PackageInfo? _packageInfo;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPackageInfo();
-  }
-
-  Future<void> _loadPackageInfo() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    setState(() {
-      _packageInfo = packageInfo;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,170 +21,222 @@ class _UpdateCheckerState extends ConsumerState<UpdateChecker> {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 600),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.system_update,
-                    color: AppTheme.primaryColor, size: 24),
-                const SizedBox(width: 12),
-                Text(
-                  'بررسی به‌روزرسانی',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                if (_packageInfo != null)
-                  Text(
-                    'نسخه فعلی: ${_packageInfo!.version}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Configuration Check
-            if (!AutoUpdateService.isConfigured) ...[
-              _buildConfigurationWarning(theme),
-              const SizedBox(height: 20),
-            ],
-
-            // Current Status
-            if (state.isChecking) ...[
-              _buildStatusCard(
-                'در حال بررسی به‌روزرسانی...',
-                Icons.search,
-                AppTheme.infoColor,
-                theme,
-              ),
-            ] else if (state.isDownloading) ...[
-              _buildStatusCard(
-                'در حال دانلود به‌روزرسانی...',
-                Icons.download,
-                AppTheme.accentColor,
-                theme,
-              ),
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                value: state.downloadProgress,
-                backgroundColor: theme.colorScheme.outline.withOpacity(0.3),
-                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentColor),
-              ),
-            ] else if (state.isInstalling) ...[
-              _buildStatusCard(
-                'در حال نصب به‌روزرسانی...',
-                Icons.install_desktop,
-                AppTheme.successColor,
-                theme,
-              ),
-            ] else if (state.availableUpdate != null) ...[
-              _buildUpdateAvailableCard(state.availableUpdate!, theme),
-            ] else if (AutoUpdateService.isConfigured) ...[
-              _buildStatusCard(
-                'نسخه شما به‌روز است',
-                Icons.check_circle,
-                AppTheme.successColor,
-                theme,
-              ),
-            ],
-
-            const SizedBox(height: 20),
-
-            // Action Buttons
-            Row(
-              children: [
-                if (AutoUpdateService.isConfigured &&
-                    state.availableUpdate == null &&
-                    !state.isChecking &&
-                    !state.isDownloading &&
-                    !state.isInstalling)
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        ref.read(autoUpdateProvider.notifier).checkForUpdates(),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('بررسی به‌روزرسانی'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                if (state.availableUpdate != null &&
-                    !state.isDownloading &&
-                    !state.isInstalling) ...[
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        ref.read(autoUpdateProvider.notifier).downloadUpdate(),
-                    icon: const Icon(Icons.download),
-                    label: const Text('دانلود و نصب'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentColor,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => ref
-                        .read(autoUpdateProvider.notifier)
-                        .openReleasesPage(),
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('مشاهده جزئیات'),
-                  ),
-                ],
-                const Spacer(),
-                if (AutoUpdateService.isConfigured)
-                  OutlinedButton.icon(
-                    onPressed: () => ref
-                        .read(autoUpdateProvider.notifier)
-                        .openReleasesPage(),
-                    icon: const Icon(Icons.info_outline),
-                    label: const Text('صفحه انتشارات'),
-                  ),
-              ],
-            ),
-
-            // Error Display
-            if (state.error != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.errorColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border:
-                      Border.all(color: AppTheme.errorColor.withOpacity(0.3)),
-                ),
-                child: Row(
+                // Header
+                Row(
                   children: [
-                    Icon(Icons.error_outline,
-                        color: AppTheme.errorColor, size: 20),
+                    Icon(Icons.system_update,
+                        color: AppTheme.primaryColor, size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        state.error!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.errorColor,
+                        'بررسی به‌روزرسانی',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () =>
-                          ref.read(autoUpdateProvider.notifier).clearError(),
-                      icon: const Icon(Icons.close),
-                      color: AppTheme.errorColor,
-                      iconSize: 20,
-                    ),
+                    
                   ],
                 ),
-              ),
-            ],
-          ],
+                const SizedBox(height: 20),
+
+                // Configuration Check
+                if (!AutoUpdateService.isConfigured) ...[
+                  _buildConfigurationWarning(theme),
+                  const SizedBox(height: 20),
+                ],
+
+                // Current Status
+                if (state.isChecking) ...[
+                  _buildStatusCard(
+                    'در حال بررسی به‌روزرسانی...',
+                    Icons.search,
+                    AppTheme.accentColor,
+                    theme,
+                  ),
+                ] else if (state.isDownloading) ...[
+                  _buildStatusCard(
+                    state.downloadProgress > 0
+                        ? 'در حال دانلود به‌روزرسانی...'
+                        : 'شروع دانلود...',
+                    Icons.download,
+                    AppTheme.accentColor,
+                    theme,
+                  ),
+                  const SizedBox(height: 16),
+                  // Progress bar with RTL fix
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: LinearProgressIndicator(
+                      value: state.downloadProgress > 0
+                          ? state.downloadProgress
+                          : 0.0,
+                      backgroundColor:
+                          theme.colorScheme.outline.withOpacity(0.3),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.accentColor),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Progress details
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        state.downloadProgress > 0
+                            ? '${(state.downloadProgress * 100).toStringAsFixed(1)}%'
+                            : '0.0%',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.accentColor,
+                        ),
+                      ),
+                      if (state.availableUpdate != null)
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            state.downloadProgress > 0
+                                ? '${AutoUpdateService.formatFileSize((state.downloadProgress * state.availableUpdate!.fileSize).round())} / ${AutoUpdateService.formatFileSize(state.availableUpdate!.fileSize)}'
+                                : '0 B / ${AutoUpdateService.formatFileSize(state.availableUpdate!.fileSize)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color:
+                                  theme.colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ] else if (state.isInstalling) ...[
+                  _buildStatusCard(
+                    'در حال نصب به‌روزرسانی...',
+                    Icons.install_desktop,
+                    AppTheme.successColor,
+                    theme,
+                  ),
+                ] else if (state.availableUpdate != null) ...[
+                  _buildUpdateAvailableCard(state.availableUpdate!, theme),
+                ] else if (AutoUpdateService.isConfigured &&
+                    !state.isChecking) ...[
+                  _buildStatusCard(
+                    'نسخه شما به‌روز است',
+                    Icons.check_circle,
+                    AppTheme.successColor,
+                    theme,
+                  ),
+                ] else if (AutoUpdateService.isConfigured &&
+                    state.isChecking == false) ...[
+                  _buildStatusCard(
+                    'برای بررسی به‌روزرسانی، روی دکمه "بررسی به‌روزرسانی" کلیک کنید',
+                    Icons.info_outline,
+                    AppTheme.infoColor,
+                    theme,
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+
+                // Action Buttons - Reorganized for better space usage
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    if (AutoUpdateService.isConfigured &&
+                        state.availableUpdate == null &&
+                        !state.isChecking &&
+                        !state.isDownloading &&
+                        !state.isInstalling)
+                      ElevatedButton.icon(
+                        onPressed: () => ref
+                            .read(autoUpdateProvider.notifier)
+                            .checkForUpdates(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('بررسی به‌روزرسانی'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    if (state.availableUpdate != null &&
+                        !state.isDownloading &&
+                        !state.isInstalling) ...[
+                      ElevatedButton.icon(
+                        onPressed: () => ref
+                            .read(autoUpdateProvider.notifier)
+                            .downloadUpdate(),
+                        icon: const Icon(Icons.download),
+                        label: const Text('دانلود و نصب'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentColor,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => ref
+                            .read(autoUpdateProvider.notifier)
+                            .openReleasesPage(),
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('مشاهده جزئیات'),
+                      ),
+                    ],
+                    if (AutoUpdateService.isConfigured)
+                      OutlinedButton.icon(
+                        onPressed: () => ref
+                            .read(autoUpdateProvider.notifier)
+                            .openReleasesPage(),
+                        icon: const Icon(Icons.info_outline),
+                        label: const Text('صفحه انتشارات'),
+                      ),
+                  ],
+                ),
+
+                // Error Display
+                if (state.error != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: AppTheme.errorColor.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline,
+                            color: AppTheme.errorColor, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            state.error!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppTheme.errorColor,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => ref
+                              .read(autoUpdateProvider.notifier)
+                              .clearError(),
+                          icon: const Icon(Icons.close),
+                          color: AppTheme.errorColor,
+                          iconSize: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
