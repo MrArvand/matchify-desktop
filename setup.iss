@@ -1,3 +1,8 @@
+; Preprocessor: ensure AppVersion is defined (overridden by /DAppVersion=...)
+#ifndef AppVersion
+#define AppVersion "0.0.0"
+#endif
+
 [Setup]
 AppName=Matchify Desktop
 AppVersion={#AppVersion}
