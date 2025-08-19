@@ -56,222 +56,42 @@ jobs:
             Get-ChildItem "build" -Recurse -Directory | Select-Object FullName
           }
         
-      - name: Prepare Inno Setup script
+      - name: Derive version
+        id: version
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}"
-          echo "Preparing Inno Setup script for version: $version"
-          
-          # Create scripts directory if it doesn't exist
-          if (!(Test-Path "scripts")) {
-            New-Item -ItemType Directory -Path "scripts" -Force
-          }
-          
-          # Create the prepare script inline
-          $prepareScript = @'
-          param(
-              [Parameter(Mandatory=$true)]
-              [string]$Version
-          )
-          
-          Write-Host "Preparing Inno Setup script for version: $Version"
-          
-          # Remove 'v' prefix if present
-          $cleanVersion = $Version -replace "^v", ""
-          
-          # Read the template Inno Setup script
-          $templatePath = "setup.iss"
-          $templateContent = Get-Content -Path $templatePath -Raw -Encoding UTF8
-          
-          # Replace the version placeholder
-          $updatedContent = $templateContent -replace "\{#AppVersion\}", $cleanVersion
-          
-          # Write the updated script
-          $outputPath = "setup-prepared.iss"
-          $updatedContent | Out-File -FilePath $outputPath -Encoding UTF8
-          
-          Write-Host "Inno Setup script prepared: $outputPath"
-          Write-Host "Version set to: $cleanVersion"
-          
-          # Verify the file was created
-          if (Test-Path $outputPath) {
-              $fileSize = (Get-Item $outputPath).Length
-              Write-Host "File created successfully. Size: $fileSize bytes"
-          } else {
-              Write-Error "Failed to create prepared Inno Setup script"
-              exit 1
-          }
-          '@
-          
-          $prepareScript | Out-File -FilePath "scripts\prepare-inno-setup.ps1" -Encoding UTF8
-          
-          # Run the prepare script
-          & "scripts\prepare-inno-setup.ps1" -Version $version
-          
-          # Verify the prepared script exists
-          if (Test-Path "setup-prepared.iss") {
-            echo "✅ Inno Setup script prepared successfully"
-            echo "Prepared script contents (first 10 lines):"
-            Get-Content "setup-prepared.iss" | Select-Object -First 10
-            
-            # Also check for any problematic lines
-            echo "🔍 Checking for potential issues in prepared script..."
-            $content = Get-Content "setup-prepared.iss"
-            $lineNumber = 0
-            foreach ($line in $content) {
-              $lineNumber++
-              if ($line -match "WizardImageFile|WizardSmallImageFile|SetupIconFile") {
-                echo "⚠️  Line $lineNumber contains image reference: $line"
-              }
-            }
-          } else {
-            echo "❌ Failed to prepare Inno Setup script"
-            exit 1
-          }
-        
-      - name: Debug Inno Setup Script
-        shell: pwsh
-        run: |
-          echo "🔍 Debugging Inno Setup script..."
-          if (Test-Path "setup-prepared.iss") {
-            echo "✅ setup-prepared.iss exists"
-            echo "File size: $((Get-Item 'setup-prepared.iss').Length) bytes"
-            echo "First 20 lines:"
-            Get-Content "setup-prepared.iss" | Select-Object -First 20 | ForEach-Object { echo "  $_" }
-            
-            # Check for any syntax issues
-            echo "`n🔍 Checking for potential syntax issues..."
-            $content = Get-Content "setup-prepared.iss" -Raw
-            if ($content -match "WizardImageFile|WizardSmallImageFile|SetupIconFile") {
-              echo "⚠️  Found image file references that might cause issues:"
-              $content -split "`n" | ForEach-Object { 
-                if ($_ -match "WizardImageFile|WizardSmallImageFile|SetupIconFile") {
-                  echo "  $_"
-                }
-              }
-            }
-            
-            # Check for any lines starting with # that might cause preprocessor issues
-            echo "`n🔍 Checking for potential preprocessor issues..."
-            $content = Get-Content "setup-prepared.iss"
-            $lineNumber = 0
-            foreach ($line in $content) {
-              $lineNumber++
-              if ($line.Trim() -match "^#") {
-                echo "⚠️  Line $lineNumber starts with # (potential preprocessor issue): $line"
-              }
-            }
-          } else {
-            echo "❌ setup-prepared.iss not found"
-          }
-          
-          echo "`n🔍 Checking build directory..."
-          if (Test-Path "build\windows\x64\runner\Release") {
-            echo "✅ Build directory exists"
-            $buildFiles = Get-ChildItem "build\windows\x64\runner\Release" | Select-Object Name, Length
-            echo "Build files:"
-            $buildFiles | ForEach-Object { echo "  $($_.Name) - $($_.Length) bytes" }
-          } else {
-            echo "❌ Build directory does not exist"
-            echo "Available directories:"
-            Get-ChildItem "build" -Recurse -Directory | Select-Object FullName
-          }
-      
-      - name: Prepare Output Directory
-        shell: pwsh
-        run: |
-          echo "📁 Preparing output directory..."
-          if (!(Test-Path "output")) {
-            New-Item -ItemType Directory -Path "output" -Force
-            echo "✅ Created output directory"
-          } else {
-            echo "✅ Output directory already exists"
-          }
-          
-          # List contents
-          echo "📂 Output directory contents:"
-          Get-ChildItem "output" | Select-Object Name, Length, LastWriteTime
-      
+          $ref = "${{ github.ref_name }}"
+          $clean = $ref -replace '^v',''
+          echo "clean=$clean" >> $env:GITHUB_OUTPUT
+          echo "ref=$ref"   >> $env:GITHUB_OUTPUT
+
       - name: Compile Inno Setup Installer
-        id: compile-main
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
         with:
-          path: setup-prepared.iss
-          options: /O+
-      
-      - name: Prepare Minimal Inno Setup Script (Fallback)
-        if: steps.compile-main.outcome == 'failure'
-        shell: pwsh
+          path: setup.iss
+          options: /O+ /DAppVersion=${{ steps.version.outputs.clean }}
+
+      - name: Verify Inno Setup output
         run: |
-          $version = "${{ github.ref_name }}"
-          echo "Preparing minimal Inno Setup script for version: $version (fallback)"
+          echo "Checking Inno Setup compilation output..."
           
-          # Remove 'v' prefix if present
-          $cleanVersion = $version -replace "^v", ""
-          
-          # Read the minimal template
-          $templatePath = "setup-minimal.iss"
-          $templateContent = Get-Content -Path $templatePath -Raw -Encoding UTF8
-          
-          # Replace the version placeholder
-          $updatedContent = $templateContent -replace "\{#AppVersion\}", $cleanVersion
-          
-          # Write the updated script
-          $outputPath = "setup-minimal-prepared.iss"
-          $updatedContent | Out-File -FilePath $outputPath -Encoding UTF8
-          
-          echo "✅ Minimal Inno Setup script prepared: $outputPath"
-          echo "Version set to: $cleanVersion"
-      
-      - name: Compile Inno Setup Installer (Fallback)
-        if: steps.compile-main.outcome == 'failure'
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
-        with:
-          path: setup-minimal-prepared.iss
-          options: /O+
-      
-      - name: Check Compilation Results
-        shell: pwsh
-        run: |
-          echo "🔍 Checking Inno Setup compilation results..."
-          
-          # Check if any installer was created
+          # Look for the generated installer
           $installerName = "matchify-desktop-setup-${{ github.ref_name }}.exe"
           $installerPath = "output\$installerName"
           
           if (Test-Path $installerPath) {
             $installerSize = (Get-Item $installerPath).Length
-            echo "✅ Main compilation succeeded: $installerName"
+            echo "✅ Installer created successfully: $installerName"
             echo "📁 Installer size: $([math]::Round($installerSize / 1MB, 2)) MB"
+            echo "📍 Installer path: $installerPath"
           } else {
-            echo "❌ Main compilation failed - installer not found"
-            
-            # Check if fallback compilation succeeded
-            if (Test-Path "setup-minimal-prepared.iss") {
-              echo "🔄 Fallback script was prepared, checking if compilation succeeded..."
-              
-              # Look for any .exe files in output
-              if (Test-Path "output") {
-                $outputFiles = Get-ChildItem "output" | Where-Object { $_.Name -like "*.exe" }
-                if ($outputFiles) {
-                  echo "✅ Fallback compilation succeeded:"
-                  $outputFiles | ForEach-Object { 
-                    echo "  $($_.Name) - $([math]::Round($_.Length / 1MB, 2)) MB"
-                  }
-                } else {
-                  echo "❌ Fallback compilation also failed - no .exe files found"
-                }
-              } else {
-                echo "❌ Output directory doesn't exist after fallback compilation"
-              }
+            echo "❌ Installer not found at expected path: $installerPath"
+            echo "📂 Checking output directory contents:"
+            if (Test-Path "output") {
+              Get-ChildItem "output" | Select-Object Name, Length, LastWriteTime
             } else {
-              echo "❌ Fallback script was not prepared"
+              echo "Output directory does not exist"
             }
-          }
-          
-          # If we get here and no installer was created, this step should fail
-          if (!(Test-Path $installerPath)) {
-            echo "❌ No installer was created by either compilation attempt"
             exit 1
           }
       

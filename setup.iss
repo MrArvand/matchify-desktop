@@ -13,7 +13,7 @@ LicenseFile=
 InfoBeforeFile=
 InfoAfterFile=
 OutputDir=output
-OutputBaseFilename=matchify-desktop-setup-{#AppVersion}
+OutputBaseFilename=matchify-desktop-setup-v{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -46,12 +46,3 @@ Filename: "{app}\matchify_desktop.exe"; Description: "{cm:LaunchProgram,Matchify
 Root: HKCU; Subkey: "Software\Matchify Desktop"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Matchify Desktop"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"; Flags: uninsdeletekey
 
-[Code]
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-  begin
-    // Launch the application after installation
-    Exec(ExpandConstant('{app}\matchify_desktop.exe'), '', '', SW_SHOW, ewNoWait, ResultCode);
-  end;
-end;
