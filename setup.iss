@@ -14,7 +14,7 @@ InfoBeforeFile=
 InfoAfterFile=
 OutputDir=output
 OutputBaseFilename=matchify-desktop-setup-{#AppVersion}
-SetupIconFile=assets\img\rabin.ico
+# SetupIconFile=assets\img\rabin.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -33,7 +33,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
 
 [Files]
 Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -42,7 +41,7 @@ Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignorever
 Name: "{group}\Matchify Desktop"; Filename: "{app}\matchify_desktop.exe"
 Name: "{group}\{cm:UninstallProgram,Matchify Desktop}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Matchify Desktop"; Filename: "{app}\matchify_desktop.exe"; Tasks: desktopicon
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Matchify Desktop"; Filename: "{app}\matchify_desktop.exe"; Tasks: quicklaunchicon
+
 
 [Run]
 Filename: "{app}\matchify_desktop.exe"; Description: "{cm:LaunchProgram,Matchify Desktop}"; Flags: nowait postinstall skipifsilent
@@ -52,11 +51,6 @@ Root: HKCU; Subkey: "Software\Matchify Desktop"; ValueType: string; ValueName: "
 Root: HKCU; Subkey: "Software\Matchify Desktop"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"; Flags: uninsdeletekey
 
 [Code]
-function InitializeSetup(): Boolean;
-begin
-  Result := True;
-end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
@@ -64,14 +58,4 @@ begin
     // Launch the application after installation
     Exec(ExpandConstant('{app}\matchify_desktop.exe'), '', '', SW_SHOW, ewNoWait, ResultCode);
   end;
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-end;
-
-procedure CurPageChanged(CurPageID: Integer);
-begin
-  // Handle page changes if needed
 end;
