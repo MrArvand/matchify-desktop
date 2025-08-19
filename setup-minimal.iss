@@ -9,17 +9,12 @@ AppId={{8F4C8B2A-1E3D-4F5A-9B6C-7D8E9F0A1B2C}
 DefaultDirName={autopf}\Matchify Desktop
 DefaultGroupName=Matchify Desktop
 AllowNoIcons=yes
-LicenseFile=
-InfoBeforeFile=
-InfoAfterFile=
 OutputDir=output
 OutputBaseFilename=matchify-desktop-setup-{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
-CloseApplications=yes
-RestartApplications=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 MinVersion=10.0.17763
@@ -46,16 +41,10 @@ Root: HKCU; Subkey: "Software\Matchify Desktop"; ValueType: string; ValueName: "
 Root: HKCU; Subkey: "Software\Matchify Desktop"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"; Flags: uninsdeletekey
 
 [Code]
-function InitializeSetup(): Boolean;
-begin
-  Result := True;
-end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
-    // Launch the application after installation
     Exec(ExpandConstant('{app}\matchify_desktop.exe'), '', '', SW_SHOW, ewNoWait, ResultCode);
   end;
 end;

@@ -14,7 +14,6 @@ InfoBeforeFile=
 InfoAfterFile=
 OutputDir=output
 OutputBaseFilename=matchify-desktop-setup-{#AppVersion}
-# SetupIconFile=assets\img\rabin.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -24,12 +23,9 @@ RestartApplications=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 MinVersion=10.0.17763
-# WizardImageFile=assets\img\rabin.bmp
-# WizardSmallImageFile=assets\img\rabin-small.bmp
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-# Name: "persian"; MessagesFile: "compiler:Languages\Persian.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
