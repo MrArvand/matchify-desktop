@@ -22,6 +22,40 @@ class ExactMatch {
   }
 }
 
+class SystemTerminalSumMatch {
+  final PaymentRecord payment;
+  final List<ReceivableRecord> receivables;
+  final String terminalCode;
+
+  SystemTerminalSumMatch({
+    required this.payment,
+    required this.receivables,
+    required this.terminalCode,
+  });
+
+  int get amount => payment.amount;
+
+  int get totalReceivableAmount {
+    return receivables.fold(0, (sum, receivable) => sum + receivable.amount);
+  }
+
+  List<int> get receivableRows => receivables.map((r) => r.rowNumber).toList();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'payment_row': payment.rowNumber,
+      'receivable_rows': receivableRows,
+      'amount': amount,
+      'terminal_code': terminalCode,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'SystemTerminalSumMatch(payment: ${payment.rowNumber}, terminal: $terminalCode, receivables: ${receivableRows}, amount: $amount)';
+  }
+}
+
 class CombinationOption {
   final List<ReceivableRecord> receivables;
   final int selectedIndex; // -1 means not selected
@@ -115,6 +149,7 @@ class UserSelection {
 
 class MatchingResult {
   final List<ExactMatch> exactMatches;
+  final List<SystemTerminalSumMatch> systemTerminalSumMatches;
   final List<CombinationMatch> combinationMatches;
   final List<PaymentRecord> unmatchedPayments;
   final List<ReceivableRecord> unmatchedReceivables;
@@ -123,6 +158,7 @@ class MatchingResult {
 
   MatchingResult({
     required this.exactMatches,
+    required this.systemTerminalSumMatches,
     required this.combinationMatches,
     required this.unmatchedPayments,
     required this.unmatchedReceivables,
@@ -131,6 +167,7 @@ class MatchingResult {
   });
 
   int get totalExactMatches => exactMatches.length;
+  int get totalSystemTerminalSumMatches => systemTerminalSumMatches.length;
   int get totalCombinationMatches => combinationMatches.length;
   int get totalUnmatchedPayments => unmatchedPayments.length;
   int get totalUnmatchedReceivables => unmatchedReceivables.length;
@@ -140,16 +177,22 @@ class MatchingResult {
       0.0,
       (sum, match) => sum + match.amount,
     );
+    double systemTerminalAmount = systemTerminalSumMatches.fold(
+      0.0,
+      (sum, match) => sum + match.amount,
+    );
     double combinationAmount = combinationMatches.fold(
       0.0,
       (sum, match) => sum + match.totalAmount,
     );
-    return exactAmount + combinationAmount;
+    return exactAmount + systemTerminalAmount + combinationAmount;
   }
 
   Map<String, dynamic> toMap() {
     return {
       'exact_matches': exactMatches.map((match) => match.toMap()).toList(),
+      'system_terminal_sum_matches':
+          systemTerminalSumMatches.map((match) => match.toMap()).toList(),
       'combination_matches': combinationMatches
           .map((match) => match.toMap())
           .toList(),
@@ -163,6 +206,7 @@ class MatchingResult {
       'user_selection': userSelection?.toMap(),
       'statistics': {
         'total_exact_matches': totalExactMatches,
+        'total_system_terminal_sum_matches': totalSystemTerminalSumMatches,
         'total_combination_matches': totalCombinationMatches,
         'total_unmatched_payments': totalUnmatchedPayments,
         'total_unmatched_receivables': totalUnmatchedReceivables,
@@ -173,6 +217,6 @@ class MatchingResult {
 
   @override
   String toString() {
-    return 'MatchingResult(exact: $totalExactMatches, combinations: $totalCombinationMatches, unmatched payments: $totalUnmatchedPayments, unmatched receivables: $totalUnmatchedReceivables)';
+    return 'MatchingResult(system terminal: $totalSystemTerminalSumMatches, exact: $totalExactMatches, combinations: $totalCombinationMatches, unmatched payments: $totalUnmatchedPayments, unmatched receivables: $totalUnmatchedReceivables)';
   }
 }

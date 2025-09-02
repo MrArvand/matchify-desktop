@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:matchify_desktop/presentation/providers/matching_provider.dart';
 import 'package:matchify_desktop/core/theme/app_theme.dart';
 import 'package:matchify_desktop/core/services/print_service.dart';
+import 'package:matchify_desktop/core/services/matching_service.dart';
 import 'package:matchify_desktop/core/utils/persian_number_formatter.dart';
 import 'package:matchify_desktop/core/models/matching_result.dart';
 import 'package:matchify_desktop/core/constants/app_constants.dart';
@@ -45,7 +46,19 @@ class ExportSection extends ConsumerWidget {
 
           // Summary Cards
           _buildSummaryCards(state, theme),
+          
+          // System Terminal Sum Matches (if any)
+          if (state.result?.systemTerminalSumMatches.isNotEmpty == true) ...[
+            _buildSystemTerminalSumMatches(state, theme),
+            const SizedBox(height: 32),
+          ],
           const SizedBox(height: 32),
+
+          // Terminal Code Summaries (if terminal codes are defined)
+          if (state.receivablesTerminalCodeColumn != null) ...[
+            _buildTerminalSummaries(state, theme),
+            const SizedBox(height: 32),
+          ],
 
           // Export Options
           _buildExportOptions(state, ref, theme),
@@ -709,6 +722,7 @@ class ExportSection extends ConsumerWidget {
         receivablesSelectedColumns: state.receivablesSelectedColumns,
         paymentsHeaders: state.paymentsHeaders,
         receivablesHeaders: state.receivablesHeaders,
+        receivablesTerminalCodeColumn: state.receivablesTerminalCodeColumn,
       );
 
       ScaffoldMessenger.of(ref.context).showSnackBar(
@@ -729,7 +743,7 @@ class ExportSection extends ConsumerWidget {
 
   Future<void> _copyToClipboard(MatchingResult result, WidgetRef ref) async {
     try {
-      final report = _generateReportText(result);
+      final report = _generateReportText(result, ref);
       await Clipboard.setData(ClipboardData(text: report));
 
       ScaffoldMessenger.of(ref.context).showSnackBar(
@@ -748,7 +762,8 @@ class ExportSection extends ConsumerWidget {
     }
   }
 
-  String _generateReportText(MatchingResult result) {
+  String _generateReportText(MatchingResult result, WidgetRef ref) {
+    final state = ref.read(matchingProvider);
     final buffer = StringBuffer();
 
     buffer.writeln('گزارش کامل تطبیق مبالغ');
@@ -838,6 +853,175 @@ class ExportSection extends ConsumerWidget {
     buffer.writeln(
         'مجموع مبالغ تطابق‌شده: ${PersianNumberFormatter.formatCurrency(result.totalMatchedAmount)}');
 
+    // Terminal Code Summaries (if terminal codes are defined)
+    if (state.receivablesTerminalCodeColumn != null) {
+      final terminalSummaries =
+          MatchingService.calculateTerminalSummaries(state.receivables);
+      if (terminalSummaries.isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln('خلاصه کدهای ترمینال:');
+        buffer.writeln('=' * 30);
+        for (final entry in terminalSummaries.entries) {
+          final terminalCode = entry.key;
+          final totalAmount = entry.value;
+          buffer.writeln(
+              'کد ترمینال $terminalCode: ${PersianNumberFormatter.formatCurrency(totalAmount)}');
+        }
+      }
+    }
+
     return buffer.toString();
+  }
+
+  Widget _buildSystemTerminalSumMatches(MatchingState state, ThemeData theme) {
+    final systemMatches = state.result!.systemTerminalSumMatches;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'تطبیق‌های خودکار کدهای ترمینال',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'تطبیق‌های خودکار که توسط سیستم انجام شده است',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.outline.withOpacity(0.2),
+            ),
+          ),
+          child: Column(
+            children: systemMatches.map((match) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ردیف ورانگر: ${match.payment.rowNumber}',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'کد ترمینال: ${match.terminalCode}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color:
+                                  theme.colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                          Text(
+                            'ردیف‌های بانک: ${match.receivableRows.join(', ')}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color:
+                                  theme.colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      MatchingService.formatAmount(match.amount),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTerminalSummaries(MatchingState state, ThemeData theme) {
+    // Calculate terminal summaries from all receivables
+    final terminalSummaries =
+        MatchingService.calculateTerminalSummaries(state.receivables);
+
+    if (terminalSummaries.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'خلاصه کدهای ترمینال',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'مجموع مبالغ هر کد ترمینال',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.outline.withOpacity(0.2),
+            ),
+          ),
+          child: Column(
+            children: terminalSummaries.entries.map((entry) {
+              final terminalCode = entry.key;
+              final totalAmount = entry.value;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'کد ترمینال: $terminalCode',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      MatchingService.formatAmount(totalAmount),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:matchify_desktop/core/models/matching_result.dart';
 import 'package:matchify_desktop/core/models/record.dart';
+import 'package:matchify_desktop/core/services/matching_service.dart';
 import 'package:matchify_desktop/core/utils/persian_number_formatter.dart';
 import 'package:matchify_desktop/core/constants/app_constants.dart';
 
@@ -15,9 +16,10 @@ class PrintService {
     required List<int> receivablesSelectedColumns,
     required List<String> paymentsHeaders,
     required List<String> receivablesHeaders,
+    int? receivablesTerminalCodeColumn,
   }) async {
     try {
-      final report = _generateReportText(result);
+      final report = _generateReportText(result, receivables);
 
       // Create a temporary HTML file for printing
       final htmlContent = _generateHtmlReport(
@@ -28,6 +30,7 @@ class PrintService {
         receivablesSelectedColumns: receivablesSelectedColumns,
         paymentsHeaders: paymentsHeaders,
         receivablesHeaders: receivablesHeaders,
+        receivablesTerminalCodeColumn: receivablesTerminalCodeColumn,
       );
       final tempDir = Directory.systemTemp;
       final tempFile = File('${tempDir.path}/matching_report.html');
@@ -84,7 +87,8 @@ class PrintService {
     } catch (_) {}
   }
 
-  static String _generateReportText(MatchingResult result) {
+  static String _generateReportText(
+      MatchingResult result, List<ReceivableRecord> receivables) {
     final buffer = StringBuffer();
 
     buffer.writeln('گزارش تطبیق مبالغ');
@@ -93,6 +97,23 @@ class PrintService {
     buffer.writeln(
         'زمان پردازش: ${PersianNumberFormatter.formatNumber(result.processingTime.inMilliseconds)} میلی‌ثانیه');
     buffer.writeln();
+
+    // System Terminal Sum Matches
+    if (result.systemTerminalSumMatches.isNotEmpty) {
+      buffer.writeln('تطبیق‌های خودکار کدهای ترمینال:');
+      buffer.writeln('-' * 30);
+      for (final match in result.systemTerminalSumMatches) {
+        buffer.writeln(
+            'ردیف ورانگر ${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}: ${PersianNumberFormatter.formatCurrency(match.payment.amount)}');
+        buffer.writeln(
+            'کد ترمینال: ${match.terminalCode}');
+        buffer.writeln(
+            'ردیف‌های بانک: ${match.receivableRows.map((r) => PersianNumberFormatter.formatNumber(r)).join(', ')}');
+        buffer.writeln(
+            'مجموع مبلغ بانک: ${PersianNumberFormatter.formatCurrency(match.totalReceivableAmount)}');
+        buffer.writeln();
+      }
+    }
 
     // Exact Matches
     buffer.writeln('تطبیق‌های دقیق:');
@@ -154,6 +175,8 @@ class PrintService {
     buffer.writeln('خلاصه:');
     buffer.writeln('-' * 30);
     buffer.writeln(
+        'تطبیق‌های خودکار ترمینال: ${PersianNumberFormatter.formatNumber(result.totalSystemTerminalSumMatches)}');
+    buffer.writeln(
         'تطبیق‌های دقیق: ${PersianNumberFormatter.formatNumber(result.totalExactMatches)}');
     buffer.writeln(
         'تطبیق‌های ترکیبی: ${PersianNumberFormatter.formatNumber(result.totalCombinationMatches)}');
@@ -163,6 +186,21 @@ class PrintService {
         '${AppConstants.bankShortName} نامطابق: ${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)}');
     buffer.writeln(
         'مجموع مبالغ تطابق‌شده: ${PersianNumberFormatter.formatCurrency(result.totalMatchedAmount)}');
+
+    // Terminal Code Summaries (if terminal codes are defined)
+    final terminalSummaries =
+        MatchingService.calculateTerminalSummaries(receivables);
+    if (terminalSummaries.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('خلاصه کدهای ترمینال:');
+      buffer.writeln('-' * 30);
+      for (final entry in terminalSummaries.entries) {
+        final terminalCode = entry.key;
+        final totalAmount = entry.value;
+        buffer.writeln(
+            'کد ترمینال $terminalCode: ${PersianNumberFormatter.formatCurrency(totalAmount)}');
+      }
+    }
 
     return buffer.toString();
   }
@@ -180,6 +218,7 @@ class PrintService {
     required List<int> receivablesSelectedColumns,
     required List<String> paymentsHeaders,
     required List<String> receivablesHeaders,
+    int? receivablesTerminalCodeColumn,
   }) {
     final paymentByRow = {for (final p in payments) p.rowNumber: p};
     final receivableByRow = {for (final r in receivables) r.rowNumber: r};
@@ -282,6 +321,65 @@ class PrintService {
       }).join('');
     }
 
+    String systemTerminalSumMatchesRowsHtml() {
+      return result.systemTerminalSumMatches.map((match) {
+        final pay = paymentByRow[match.payment.rowNumber];
+        final payExtraTds = paymentsSelectedColumns
+            .map((i) =>
+                '<td class="varanegar-column">${_cellValue(pay, i)}</td>')
+            .join('');
+        final recExtraTds = receivablesSelectedColumns.map((i) {
+          final joined = match.receivables
+              .map((r) => _cellValue(receivableByRow[r.rowNumber], i))
+              .join(', ');
+          return '<td class="bank-column">$joined</td>';
+        }).join('');
+
+        return '''
+          <tr class="system-terminal-row">
+            <td><span class="status-badge status-system-terminal">تطبیق خودکار ترمینال</span></td>
+            <td class="varanegar-column"><span class="row-number">${PersianNumberFormatter.formatNumber(match.payment.rowNumber)}</span></td>
+            <td class="varanegar-column amount-cell">${PersianNumberFormatter.formatCurrency(match.payment.amount)}</td>
+            <td class="bank-column"><strong>${match.terminalCode}</strong></td>
+            <td class="bank-column"><span class="row-number">${match.receivableRows.map((r) => PersianNumberFormatter.formatNumber(r)).join(', ')}</span></td>
+            <td class="bank-column amount-cell">${PersianNumberFormatter.formatCurrency(match.totalReceivableAmount)}</td>
+            $payExtraTds$recExtraTds
+          </tr>
+        ''';
+      }).join('');
+    }
+
+    String terminalSummariesHtml() {
+      final terminalSummaries =
+          MatchingService.calculateTerminalSummaries(receivables);
+      if (terminalSummaries.isEmpty) {
+        return '<p>هیچ کد ترمینالی یافت نشد</p>';
+      }
+
+      return '''
+        <table class="excel-table">
+          <thead>
+            <tr>
+              <th>کد ترمینال</th>
+              <th>مجموع مبلغ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${terminalSummaries.entries.map((entry) {
+        final terminalCode = entry.key;
+        final totalAmount = entry.value;
+        return '''
+                <tr>
+                  <td><strong>${terminalCode}</strong></td>
+                  <td class="amount-cell">${PersianNumberFormatter.formatCurrency(totalAmount)}</td>
+                </tr>
+              ''';
+      }).join('')}
+          </tbody>
+        </table>
+      ''';
+    }
+
     return '''
 <!DOCTYPE html>
 <html dir="rtl" lang="fa">
@@ -321,12 +419,14 @@ class PrintService {
     .color-box { width: 20px; height: 20px; border-radius: 4px; border: 1px solid #d1d5db; }
     .legend-item span { font-size: 14px; font-weight: 500; color: #374151; }
     
+    .system-terminal-row { background-color: #f0f9ff; border-left: 4px solid #0ea5e9; }
     .match-row { background-color: #ecfdf5; border-left: 4px solid #10b981; }
     .combination-row { background-color: #eff6ff; border-left: 4px solid #3b82f6; }
     .unmatched-row { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
     .amount-cell { font-weight: 600; color: #059669; }
     .row-number { background-color: #f3f4f6; font-weight: 600; color: #374151; border-radius: 4px; padding: 4px 8px; font-size: 12px; }
     .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .status-system-terminal { background-color: #e0f2fe; color: #0c4a6e; }
     .status-exact { background-color: #d1fae5; color: #065f46; }
     .status-combination { background-color: #dbeafe; color: #1e40af; }
     .status-unmatched { background-color: #fef3c7; color: #92400e; }
@@ -336,6 +436,10 @@ class PrintService {
     .summary-number { font-size: 32px; font-weight: 700; margin-bottom: 5px; }
     .summary-amount { font-size: 16px; opacity: 0.9; }
     .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; }
+    .terminal-summaries { margin-top: 15px; }
+    .terminal-summaries table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .terminal-summaries th { background-color: #f8f9fa; padding: 12px; text-align: center; border: 1px solid #dee2e6; font-weight: bold; }
+    .terminal-summaries td { padding: 12px; text-align: center; border: 1px solid #dee2e6; }
     @media print { body { background-color: white; margin: 0; padding: 10px; } .container { box-shadow: none; border: 1px solid #e5e7eb; } .excel-table { box-shadow: none; border: 1px solid #000; } .excel-table th, .excel-table td { border: 1px solid #000; } }
   </style>
 </head>
@@ -353,11 +457,54 @@ class PrintService {
 
     <div class="content">
       <div class="summary-grid">
+        <div class="summary-card"><h3>تطبیق‌های خودکار ترمینال</h3><div class="summary-number">${PersianNumberFormatter.formatNumber(result.totalSystemTerminalSumMatches)}</div><div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.systemTerminalSumMatches.fold(0.0, (sum, match) => sum + match.amount))}</div></div>
         <div class="summary-card"><h3>تطبیق‌های دقیق</h3><div class="summary-number">${PersianNumberFormatter.formatNumber(result.totalExactMatches)}</div><div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.exactMatches.fold(0.0, (sum, match) => sum + match.amount))}</div></div>
         <div class="summary-card"><h3>تطبیق‌های ترکیبی</h3><div class="summary-number">${PersianNumberFormatter.formatNumber(result.combinationMatches.where((match) => match.selectedOptionIndex >= 0).length)}</div><div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.combinationMatches.where((match) => match.selectedOptionIndex >= 0).fold(0.0, (sum, match) => sum + match.options[match.selectedOptionIndex].totalAmount))}</div></div>
         <div class="summary-card"><h3>ورانگر نامطابق</h3><div class="summary-number">${PersianNumberFormatter.formatNumber(result.totalUnmatchedPayments)}</div><div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.unmatchedPayments.fold(0.0, (sum, payment) => sum + payment.amount))}</div></div>
         <div class="summary-card"><h3>بانک نامطابق</h3><div class="summary-number">${PersianNumberFormatter.formatNumber(result.totalUnmatchedReceivables)}</div><div class="summary-amount">${PersianNumberFormatter.formatCurrency(result.unmatchedReceivables.fold(0.0, (sum, receivable) => sum + receivable.amount))}</div></div>
       </div>
+
+      ${result.systemTerminalSumMatches.isNotEmpty ? '''
+      <div class="section">
+        <div class="section-title">تطبیق‌های خودکار کدهای ترمینال</div>
+        <div class="color-legend">
+          <div class="legend-item">
+            <div class="color-box varanegar-column"></div>
+            <span>ستون‌های ورانگر</span>
+          </div>
+          <div class="legend-item">
+            <div class="color-box bank-column"></div>
+            <span>ستون‌های بانک</span>
+          </div>
+        </div>
+        
+        <table class="excel-table">
+          <thead>
+            <tr>
+              <th>وضعیت تطبیق</th>
+              <th class="varanegar-column">ردیف ورانگر</th>
+              <th class="varanegar-column">مبلغ ورانگر</th>
+              <th class="bank-column">کد ترمینال</th>
+              <th class="bank-column">ردیف‌های بانک</th>
+              <th class="bank-column">مجموع مبلغ بانک</th>
+              $payExtraTh$recExtraTh
+            </tr>
+          </thead>
+          <tbody>
+            ${systemTerminalSumMatchesRowsHtml()}
+          </tbody>
+        </table>
+      </div>
+      ''' : ''}
+
+      ${receivablesTerminalCodeColumn != null ? '''
+      <div class="section">
+        <div class="section-title">خلاصه کدهای ترمینال</div>
+        <div class="terminal-summaries">
+          ${terminalSummariesHtml()}
+        </div>
+      </div>
+      ''' : ''}
 
       ${result.exactMatches.isNotEmpty ? '''
       <div class="section">

@@ -29,12 +29,77 @@ class MatchingService {
     }
 
     final List<ExactMatch> exactMatches = [];
+    final List<SystemTerminalSumMatch> systemTerminalSumMatches = [];
     final List<CombinationMatch> combinationMatches = [];
     final List<PaymentRecord> unmatchedPayments = [];
     final Set<ReceivableRecord> usedReceivables = {};
 
-    // Process exact matches first
-    for (final payment in sortedPayments) {
+    // Check if terminal codes are defined (any receivable has terminal_code)
+    final hasTerminalCodes = sortedReceivables.any((r) =>
+        r.additionalData['terminal_code'] != null &&
+        r.additionalData['terminal_code'].toString().trim().isNotEmpty);
+
+    if (hasTerminalCodes) {
+      // PRIORITY 1: System Terminal Sum Matches (highest priority)
+      onProgress(0.1);
+
+      // Group receivables by terminal code
+      final Map<String, List<ReceivableRecord>> terminalGroups = {};
+      for (final r in sortedReceivables) {
+        final code =
+            (r.additionalData['terminal_code'] ?? '').toString().trim();
+        if (code.isNotEmpty) {
+          terminalGroups.putIfAbsent(code, () => []).add(r);
+        }
+      }
+
+      // Process System Terminal Sum Matches first
+      for (final payment in sortedPayments) {
+        // Try to find terminal groups that sum to the payment amount
+        for (final entry in terminalGroups.entries) {
+          final terminalCode = entry.key;
+          final terminalReceivables = entry.value;
+
+          // Skip if terminal has no receivables or if it's empty terminal code
+          if (terminalReceivables.isEmpty || terminalCode.isEmpty) continue;
+
+          // Calculate sum of all receivables in this terminal
+          final terminalSum =
+              terminalReceivables.fold<int>(0, (sum, r) => sum + r.amount);
+
+          // Check if terminal sum matches payment amount (within epsilon)
+          if ((terminalSum - payment.amount).abs() <= _epsilon) {
+            // Check if any receivables in this terminal are already used
+            final hasConflict =
+                terminalReceivables.any((r) => usedReceivables.contains(r));
+
+            if (!hasConflict) {
+              // Create System Terminal Sum Match
+              systemTerminalSumMatches.add(SystemTerminalSumMatch(
+                payment: payment,
+                receivables: terminalReceivables,
+                terminalCode: terminalCode,
+              ));
+
+              // Mark all receivables in this terminal as used
+              usedReceivables.addAll(terminalReceivables);
+            }
+          }
+        }
+      }
+
+      // Update progress
+      onProgress(0.3);
+    }
+
+    // PRIORITY 2: Exact matches (only for payments not matched by system terminal sum)
+    final paymentsForExactMatching = hasTerminalCodes
+        ? sortedPayments
+            .where((p) => !systemTerminalSumMatches.any((m) => m.payment == p))
+            .toList()
+        : sortedPayments;
+
+    for (final payment in paymentsForExactMatching) {
       final matchingReceivables = receivableMap[payment.amount];
       if (matchingReceivables != null && matchingReceivables.isNotEmpty) {
         // Find first unused receivable with exact amount
@@ -57,13 +122,20 @@ class MatchingService {
     }
 
     // Update progress
-    onProgress(0.3);
+    onProgress(0.4);
 
-    // Process combination matches for unmatched payments
+    // PRIORITY 3: Combination matches for remaining unmatched payments
     final remainingReceivables =
         sortedReceivables.where((r) => !usedReceivables.contains(r)).toList();
 
-    // Group remaining receivables by terminal code if present
+    // Get payments that haven't been matched by system terminal sum or exact matches
+    final paymentsForCombinationMatching = sortedPayments
+        .where((p) =>
+            !systemTerminalSumMatches.any((m) => m.payment == p) &&
+            !exactMatches.any((m) => m.payment == p))
+        .toList();
+
+    // Group remaining receivables by terminal code if present (for combination matching)
     final Map<String, List<ReceivableRecord>> terminalGroups = {};
     for (final r in remainingReceivables) {
       final code = (r.additionalData['terminal_code'] ?? '').toString().trim();
@@ -80,9 +152,9 @@ class MatchingService {
     print(
         'DEBUG: Sample terminal codes: ${remainingReceivables.take(5).map((r) => r.additionalData['terminal_code']).toList()}');
 
-    // Calculate terminal-based combinations first (highest priority)
-    final terminalBasedCombinations = <CombinationMatch>[];
-    final terminalUsedReceivables = <ReceivableRecord>{};
+    // Calculate additional terminal-based combinations for remaining payments
+    final additionalTerminalCombinations = <CombinationMatch>[];
+    final additionalTerminalUsedReceivables = <ReceivableRecord>{};
 
     // Debug: Print terminal groups
     print('DEBUG: Terminal groups found: ${terminalGroups.length}');
@@ -95,7 +167,7 @@ class MatchingService {
           'DEBUG: Terminal $terminalCode: ${terminalReceivables.length} rows, sum: $terminalSum');
     }
 
-    for (final payment in unmatchedPayments) {
+    for (final payment in paymentsForCombinationMatching) {
       print(
           'DEBUG: Checking payment ${payment.rowNumber} with amount ${payment.amount}');
 
@@ -129,20 +201,20 @@ class MatchingService {
           // Check if any receivables in this terminal are already used
           final hasConflict = terminalReceivables.any((r) =>
               usedReceivables.contains(r) ||
-              terminalUsedReceivables.contains(r));
+              additionalTerminalUsedReceivables.contains(r));
 
           if (!hasConflict) {
             print(
                 'DEBUG: Adding terminal-based combination for payment ${payment.rowNumber}');
             // Add to terminal-based combinations
-            terminalBasedCombinations.add(CombinationMatch(
+            additionalTerminalCombinations.add(CombinationMatch(
               payment: payment,
               options: [terminalOption],
               isTerminalBased: true,
             ));
 
             // Mark all receivables in this terminal as used
-            terminalUsedReceivables.addAll(terminalReceivables);
+            additionalTerminalUsedReceivables.addAll(terminalReceivables);
             usedReceivables.addAll(terminalReceivables);
           } else {
             print('DEBUG: Conflict detected for terminal $terminalCode');
@@ -152,13 +224,19 @@ class MatchingService {
     }
 
     print(
-        'DEBUG: Total terminal-based combinations found: ${terminalBasedCombinations.length}');
+        'DEBUG: Total additional terminal-based combinations found: ${additionalTerminalCombinations.length}');
 
-    // Remove terminal-based combinations from unmatched payments
-    final terminalMatchedPayments =
-        terminalBasedCombinations.map((m) => m.payment).toSet();
-    final remainingUnmatchedPayments = unmatchedPayments
-        .where((p) => !terminalMatchedPayments.contains(p))
+    // Add additional terminal combinations to the main list
+    combinationMatches.addAll(additionalTerminalCombinations);
+
+    // Calculate final unmatched payments
+    final allMatchedPayments = <PaymentRecord>{};
+    allMatchedPayments.addAll(systemTerminalSumMatches.map((m) => m.payment));
+    allMatchedPayments.addAll(exactMatches.map((m) => m.payment));
+    allMatchedPayments.addAll(combinationMatches.map((m) => m.payment));
+    
+    final remainingUnmatchedPayments =
+        sortedPayments.where((p) => !allMatchedPayments.contains(p))
         .toList();
 
     final int total = remainingUnmatchedPayments.length;
@@ -237,15 +315,12 @@ class MatchingService {
 
     stopwatch.stop();
     
-    // Combine terminal-based and regular combination matches
-    final allCombinationMatches = [
-      ...terminalBasedCombinations,
-      ...combinationMatches
-    ];
+    // All combination matches are already in combinationMatches list
     
     return MatchingResult(
       exactMatches: exactMatches,
-      combinationMatches: allCombinationMatches,
+      systemTerminalSumMatches: systemTerminalSumMatches,
+      combinationMatches: combinationMatches,
       unmatchedPayments: remainingUnmatchedPayments,
       unmatchedReceivables: unmatchedReceivables,
       processingTime: stopwatch.elapsed,
@@ -716,6 +791,7 @@ class MatchingService {
 
     return MatchingResult(
       exactMatches: originalResult.exactMatches,
+      systemTerminalSumMatches: originalResult.systemTerminalSumMatches,
       combinationMatches: updatedCombinationMatches,
       unmatchedPayments: originalResult.unmatchedPayments,
       unmatchedReceivables: unmatchedReceivables,
@@ -763,6 +839,7 @@ class MatchingService {
     
     return MatchingResult(
       exactMatches: result.exactMatches,
+      systemTerminalSumMatches: result.systemTerminalSumMatches,
       combinationMatches: updatedCombinationMatches,
       unmatchedPayments: result.unmatchedPayments,
       unmatchedReceivables: result.unmatchedReceivables,
@@ -771,5 +848,22 @@ class MatchingService {
     );
   }
 
-  // Ref code based combinations removed
+  /// Calculate terminal code summaries from receivables
+  static Map<String, int> calculateTerminalSummaries(
+      List<ReceivableRecord> receivables) {
+    final Map<String, int> terminalSummaries = {};
+
+    for (final receivable in receivables) {
+      final terminalCode =
+          receivable.additionalData['terminal_code']?.toString().trim();
+      if (terminalCode != null && terminalCode.isNotEmpty) {
+        terminalSummaries[terminalCode] =
+            (terminalSummaries[terminalCode] ?? 0) + receivable.amount;
+      }
+    }
+
+    return terminalSummaries;
+  }
+
+
 }

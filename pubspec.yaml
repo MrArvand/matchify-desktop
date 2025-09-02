@@ -1,7 +1,7 @@
 name: matchify_desktop
 description: A Flutter desktop application for matching payment records with receivable records using efficient algorithms.
 publish_to: "none"
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

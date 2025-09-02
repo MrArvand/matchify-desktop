@@ -363,6 +363,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
 
     final updatedResult = MatchingResult(
       exactMatches: state.result!.exactMatches,
+      systemTerminalSumMatches: state.result!.systemTerminalSumMatches,
       combinationMatches: updatedCombinationMatches,
       unmatchedPayments: state.result!.unmatchedPayments,
       unmatchedReceivables: state.result!.unmatchedReceivables,
@@ -394,6 +395,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
     // Create updated result with only valid combinations
     final updatedResult = MatchingResult(
       exactMatches: state.result!.exactMatches,
+      systemTerminalSumMatches: state.result!.systemTerminalSumMatches,
       combinationMatches: validCombinationMatches,
       unmatchedPayments: state.result!.unmatchedPayments,
       unmatchedReceivables: state.result!.unmatchedReceivables,
@@ -424,6 +426,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
 
     final updatedResult = MatchingResult(
       exactMatches: state.result!.exactMatches,
+      systemTerminalSumMatches: state.result!.systemTerminalSumMatches,
       combinationMatches: restoredCombinationMatches,
       unmatchedPayments: state.result!.unmatchedPayments,
       unmatchedReceivables: state.result!.unmatchedReceivables,
